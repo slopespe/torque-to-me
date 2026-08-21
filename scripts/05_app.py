@@ -108,13 +108,26 @@ def ingest(pdf_file, bike_name: str, model: str):
             "inference": "local",
             "processing_mode": "many-to-one",
             "extraction_contract": "dense",
-            "provider_override": "ollama",
+            # ollama_chat: the legacy ollama/ route returns empty content
+            # for thinking models (see scripts/03_extract.py).
+            "provider_override": "ollama_chat",
             "model_override": model,
             "structured_output": True,
             "use_chunking": True,
+            # Single worker + long timeout: Ollama serves one request at a
+            # time (see scripts/03_extract.py).
+            "parallel_workers": 1,
+            "llm_overrides": {
+                "max_output_tokens": 16000,
+                "reliability": {"timeout_s": 900},
+            },
         }
         context = run_pipeline(config)
         graph = context.knowledge_graph
+
+        # Recover cross-links the LLM left as prose (see graph_enrich.py).
+        from graph_enrich import enrich
+        enrich(graph)
 
         with open(outdir / "graph.pickle", "wb") as f:
             pickle.dump(graph, f)

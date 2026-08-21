@@ -1,5 +1,6 @@
-# Core pipeline
-docling-graph>=0.2.4
+# Core pipeline (1.x API: run_pipeline returns PipelineContext,
+# PipelineConfig supports extraction_contract/structured_output)
+docling-graph>=1.9,<2
 
 # PDF splitting
 pypdf>=4.0

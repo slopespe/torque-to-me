@@ -100,7 +100,7 @@ def ask_ollama(model: str, prompt: str) -> str:
     resp = requests.post(
         OLLAMA_URL,
         json={"model": model, "prompt": prompt, "stream": False},
-        timeout=300,
+        timeout=900,  # thinking models can reason for minutes before answering
     )
     resp.raise_for_status()
     return resp.json()["response"]

@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from templates.service_manual import ServiceManualChapter  # noqa: E402
 
 from docling_graph import PipelineContext, run_pipeline  # noqa: E402
+from graph_enrich import enrich  # noqa: E402
 
 
 def main() -> None:
@@ -65,10 +66,23 @@ def main() -> None:
         "inference": "local",
         "processing_mode": "many-to-one",   # merge whole chapter into one root object
         "extraction_contract": args.contract,
-        "provider_override": "ollama",
-        "model_override": args.model,       # LiteLLM routes ollama/<model>
+        # ollama_chat (not ollama): LiteLLM's ollama/ route uses the legacy
+        # generate endpoint, which returns empty content for thinking models
+        # (e.g. qwen3.5) — the chat endpoint separates thinking from content.
+        "provider_override": "ollama_chat",
+        "model_override": args.model,
         "structured_output": True,
         "use_chunking": True,
+        # Leave room for thinking tokens; the library's registry fallback
+        # (4092) truncates thinking models mid-reasoning.
+        # Ollama serves one request at a time, so parallel workers only queue
+        # up and trip the timeout; a single worker with a generous timeout is
+        # faster in practice for local thinking models.
+        "parallel_workers": 1,
+        "llm_overrides": {
+            "max_output_tokens": 16000,
+            "reliability": {"timeout_s": 900},
+        },
     }
 
     print(f"Running pipeline on {args.pdf} with ollama/{args.model} ...")
@@ -78,6 +92,11 @@ def main() -> None:
 
     graph = context.knowledge_graph
     models = context.extracted_models
+
+    # Recover cross-links the LLM left as prose (procedure text -> entity
+    # name matches); see graph_enrich.py.
+    enrich_stats = enrich(graph)
+    print(f"Enrichment added edges: {enrich_stats}")
 
     args.outdir.mkdir(parents=True, exist_ok=True)
 

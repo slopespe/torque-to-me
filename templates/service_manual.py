@@ -15,7 +15,16 @@ Design notes:
 """
 
 from pydantic import BaseModel, Field
-from docling_graph.utils import edge
+
+
+def edge(label: str, *, description: str = ""):
+    """List field that becomes a typed graph edge: docling-graph reads
+    json_schema_extra['edge_label'] when converting models to the graph."""
+    return Field(
+        default_factory=list,
+        description=description,
+        json_schema_extra={"edge_label": label},
+    )
 
 
 class Part(BaseModel):
