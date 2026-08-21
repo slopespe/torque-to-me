@@ -21,11 +21,20 @@ structured document
 knowledge graph        Procedure ─REQUIRES→ Part
 (every node carries    Procedure ─SPECIFIES→ TorqueSpec
  its source page)      Symptom ─RESOLVED_BY→ Procedure
-      │
+      │  deterministic enrichment (scripts/graph_enrich.py):
+      │  recover cross-links the LLM left as prose, by string-matching
+      │  entity names against procedure text — no LLM call
       ▼
 question → matching nodes → one-hop subgraph → local LLM answers,
 citing the manual pages it used
 ```
+
+The enrichment step exists because small local models extract entities and
+step text faithfully but tend to leave the *relational* fields empty — the
+step says "Crankcase drain plug torque: 25 N·m" while the procedure's
+torque_specs list stays `[]`. Since both endpoints already exist as nodes,
+plain string matching recovers the edges for free. LLM for reading, plain
+code for linking, human spot-checks as the final gate.
 
 ## Hardware requirements
 
@@ -50,6 +59,12 @@ ollama pull granite3.1:8b   # IBM model, pairs well with docling
 
 ollama run qwen2.5:14b "Say ok"   # verify
 ```
+
+Already have a model you like (including thinking models such as qwen3
+or qwen3.5)? It probably works — but read
+[Running on local thinking models](#running-on-local-thinking-models-lessons-learned)
+first: Ollama's default context window will silently break extraction
+unless you raise it.
 
 ### 2. Create the Python environment
 
@@ -147,6 +162,55 @@ python scripts/06_visualize.py --tag honda-nx650
 Interactive, color-coded by entity type. Hover a node to see its
 attributes and source page.
 
+**Optional Stage 5 — Curate**
+
+The demo graph in this repo went through one more pass:
+`scripts/curate_demo.py` encodes what a careful human reading of the
+converted manual recovers that the LLM missed (whole procedures, the
+recommended oil spec, symptom→fix links). It is specific to the NX650
+lubrication chapter, but it shows the pattern: curated nodes carry
+`match='curated'` provenance so they stay distinguishable, and the script
+is idempotent so it can re-run after every extraction.
+
+## Running on local thinking models: lessons learned
+
+This pipeline was debugged end-to-end against `qwen3.5` (a 10B thinking
+model) on a Mac. Everything below looked like "the LLM returns empty
+output" — each had a different cause. If you run a thinking model
+locally, you will likely meet all three:
+
+**1. Ollama's default context window silently truncates your prompts.**
+Ollama runs models with a 4096-token context unless told otherwise — even
+if the model supports 262k. Extraction prompts are 8–10k tokens, so the
+prompt got cut to 4095 tokens and generation stopped after 1 token
+(`prompt_tokens=4095, completion_tokens=1, finish_reason=length`). Fix:
+create a derived model with a bigger context — instant and free, it
+reuses the existing weights:
+
+```bash
+printf 'FROM qwen3.5:latest\nPARAMETER num_ctx 32768\n' > Modelfile
+ollama create qwen3.5-32k -f Modelfile
+# then use --model qwen3.5-32k everywhere
+```
+
+**2. Thinking models return empty content on LiteLLM's legacy `ollama/`
+route.** The `ollama/` prefix uses the generate endpoint, which does not
+separate reasoning from the answer — content comes back empty. The
+`ollama_chat/` route separates them correctly. This repo sets
+`provider_override: "ollama_chat"` in the pipeline config for that reason.
+
+**3. Parallel workers against a serial server snowball into timeouts.**
+Ollama processes one request at a time; N parallel extraction workers
+just means N−1 requests queue until their timeout expires, then retry
+into the same queue. One run's ETA grew past 2 hours before being killed.
+This repo sets `parallel_workers: 1` with a 900 s timeout — sequential is
+genuinely the fastest configuration for a single local model. Budget for
+generous timeouts generally: a thinking model can reason for minutes
+before emitting its first answer token.
+
+Expect roughly 40 minutes per manual chapter for extraction on a laptop
+with a 10B thinking model. Querying the finished graph takes seconds.
+
 ## A word of caution
 
 Extraction is good but not perfect. Spot-check torque values against the
@@ -158,9 +222,11 @@ on every answer exists precisely so you can verify in seconds.
 | Problem | Fix |
 |---|---|
 | Ollama connection refused | `ollama serve` must be running; check `curl http://localhost:11434` |
+| "LiteLLM returned empty content" | Almost always the context window or the thinking-model route — see [lessons learned](#running-on-local-thinking-models-lessons-learned) |
 | Extraction returns empty models | Model too small or chunk too large: try 14b, or a smaller page range |
+| LLM calls time out | Thinking models reason for minutes; keep `parallel_workers: 1` and raise `timeout_s` |
 | OCR garbage in conversion | Better scan, VLM extra, or pre-process the PDF (deskew, contrast) |
-| `docling-graph` config key errors | Library is young (0.2.x), keys move between versions. Check `pip show docling-graph` and https://docling-project.github.io/docling-graph/ |
+| `docling-graph` config key errors | Config keys move between versions; this repo pins `>=1.9,<2`. Check `pip show docling-graph` and https://docling-project.github.io/docling-graph/ |
 | Out of memory during extraction | Use the 7b model, or a smaller chapter |
 
 ## Project layout
@@ -175,6 +241,8 @@ torque-to-me/
 │   ├── 01_split_pdf.py       # cut a chapter out of the manual
 │   ├── 02_conversion_check.py# Docling conversion preview (quality gate 1)
 │   ├── 03_extract.py         # build the graph for one manual (--tag)
+│   ├── graph_enrich.py       # deterministic cross-link recovery (auto-run)
+│   ├── curate_demo.py        # hand-curated additions for the demo graph
 │   ├── 04_query.py           # CLI question answering
 │   ├── 05_app.py             # Torque to Me app: upload, build, ask
 │   └── 06_visualize.py       # interactive HTML graph view
@@ -182,9 +250,15 @@ torque-to-me/
 └── outputs/<bike-tag>/       # one graph per bike (gitignored)
 ```
 
+No manual is shipped with this repo — service manuals are copyrighted, so
+bring your own PDF. Any scanned manual works; scans of 90s manuals OCR
+surprisingly well.
+
 ## Version note
 
-Written against docling-graph 0.2.x (August 2026). The `run_pipeline`
-config dict follows the documented API; if a key is rejected after a
-library update, compare with the current README at
-https://github.com/docling-project/docling-graph
+Written against docling-graph 1.9.x (August 2026), pinned `>=1.9,<2` in
+requirements.txt. Two API notes for future upgrades: `run_pipeline`
+returns a `PipelineContext` (1.x behaviour), and the `edge()` field helper
+is intentionally *not* importable from the library — docling-graph ships
+it as a documented snippet that template authors copy into their template,
+which is why it is defined locally in `templates/service_manual.py`.

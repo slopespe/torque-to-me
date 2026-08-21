@@ -3,3 +3,4 @@ __pycache__/
 data/input/*.pdf
 outputs/
 .env
+.DS_Store
