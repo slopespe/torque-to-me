@@ -103,8 +103,7 @@ class Symptom(BaseModel):
     possible_causes: list[str] = Field(
         default_factory=list,
         description=(
-            "Possible causes listed in the manual for this symptom, "
-            "one string per cause."
+            "Possible causes listed in the manual for this symptom, one string per cause."
         ),
     )
 
@@ -156,9 +155,7 @@ class Procedure(BaseModel):
 class ServiceManualChapter(BaseModel):
     """Root object: one chapter of a motorcycle service manual."""
 
-    chapter_title: str = Field(
-        description="Title of the chapter, e.g. 'Maintenance'."
-    )
+    chapter_title: str = Field(description="Title of the chapter, e.g. 'Maintenance'.")
     procedures: list[Procedure] = edge(
         "CONTAINS",
         description="All maintenance/repair procedures in this chapter.",

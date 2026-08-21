@@ -15,7 +15,9 @@ import networkx as nx
 META_FILENAME = "meta.json"
 
 
-def resolve_graph_path(tag: str | None, graph: Path | None, outputs: Path = Path("outputs")) -> Path:
+def resolve_graph_path(
+    tag: str | None, graph: Path | None, outputs: Path = Path("outputs")
+) -> Path:
     """Resolve which graph.pickle a command should use.
 
     Explicit --graph wins; otherwise --tag; otherwise the single existing

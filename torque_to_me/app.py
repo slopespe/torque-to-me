@@ -53,6 +53,7 @@ EXAMPLES = [
 # Graph registry
 # ----------------------------------------------------------------------
 
+
 def list_bikes() -> list[tuple[str, str]]:
     """(label, tag) dropdown choices: 'Honda NX650 RD08 — Lubrication'."""
     return sorted(
@@ -74,6 +75,7 @@ def slugify(name: str) -> str:
 # ----------------------------------------------------------------------
 # Ingestion (upload -> knowledge graph)
 # ----------------------------------------------------------------------
+
 
 def ingest(pdf_file, bike_name: str, chapter: str, model: str, cfg: config.Config):
     """Run the docling-graph pipeline on an uploaded manual."""
@@ -167,6 +169,7 @@ def ingest(pdf_file, bike_name: str, chapter: str, model: str, cfg: config.Confi
 # Question answering
 # ----------------------------------------------------------------------
 
+
 def answer(tag: str, question: str, model: str, cfg: config.Config):
     """Retrieve facts, then stream the model's answer.
 
@@ -204,7 +207,8 @@ def answer(tag: str, question: str, model: str, cfg: config.Config):
                     thinking_shown = True
                     yield (
                         "*Thinking... (a thinking model can take a few minutes)*",
-                        gr.skip(), gr.skip(),
+                        gr.skip(),
+                        gr.skip(),
                     )
                 continue
             reply_parts.append(chunk)
@@ -216,6 +220,7 @@ def answer(tag: str, question: str, model: str, cfg: config.Config):
 # ----------------------------------------------------------------------
 # UI
 # ----------------------------------------------------------------------
+
 
 def build_app(answer_model: str, extract_model: str, cfg: config.Config) -> gr.Blocks:
     with gr.Blocks(title="Torque to Me") as app:
@@ -256,18 +261,14 @@ def build_app(answer_model: str, extract_model: str, cfg: config.Config) -> gr.B
                     )
                     gr.HTML(graph_viz.legend_html())
                     subgraph_box = gr.HTML()
-                    with gr.Accordion(
-                        "Facts as text (exactly what the model sees)", open=False
-                    ):
+                    with gr.Accordion("Facts as text (exactly what the model sees)", open=False):
                         facts_box = gr.Textbox(
                             show_label=False,
                             lines=14,
                             interactive=False,
                         )
 
-            refresh_btn.click(
-                lambda: gr.update(choices=list_bikes()), outputs=bike_dd
-            )
+            refresh_btn.click(lambda: gr.update(choices=list_bikes()), outputs=bike_dd)
             # functools.partial, not a lambda: Gradio only streams the
             # generator's yields if it can see a generator function.
             gr.on(
@@ -310,8 +311,7 @@ def run(args: argparse.Namespace) -> None:
     OUTPUTS.mkdir(exist_ok=True)
     bikes = list_bikes()
     print(
-        f"Found {len(bikes)} bike graph(s): "
-        f"{', '.join(label for label, _ in bikes) or 'none yet'}"
+        f"Found {len(bikes)} bike graph(s): {', '.join(label for label, _ in bikes) or 'none yet'}"
     )
     print(f"Answering with {args.answer_model}, extracting with {args.extract_model}")
     build_app(args.answer_model, args.extract_model, args.cfg).launch(

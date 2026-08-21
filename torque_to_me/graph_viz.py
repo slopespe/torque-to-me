@@ -43,7 +43,8 @@ def _hover_value(value, limit: int = 220) -> str:
 
 def _hover(data: dict) -> str:
     lines = [
-        f"{k}: {_hover_value(v)}" for k, v in data.items()
+        f"{k}: {_hover_value(v)}"
+        for k, v in data.items()
         if not k.startswith("__") and v not in (None, [], "")
     ]
     prov = data.get("__provenance__")

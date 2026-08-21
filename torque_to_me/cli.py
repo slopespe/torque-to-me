@@ -78,8 +78,7 @@ def build_parser(cfg: config.Config) -> argparse.ArgumentParser:
     p.add_argument(
         "--name",
         default=None,
-        help="Bike display name shown in the app, e.g. 'Honda NX650 RD08'. "
-        "Defaults to the tag.",
+        help="Bike display name shown in the app, e.g. 'Honda NX650 RD08'. Defaults to the tag.",
     )
     p.add_argument(
         "--chapter",
@@ -119,12 +118,8 @@ def build_parser(cfg: config.Config) -> argparse.ArgumentParser:
         help="Manual tag used at extraction (outputs/<tag>/graph.pickle). "
         "If omitted and exactly one graph exists, it is used.",
     )
-    p.add_argument(
-        "--graph", type=Path, default=None, help="Explicit graph path (overrides --tag)"
-    )
-    p.add_argument(
-        "--top", type=int, default=cfg.answer.top_nodes, help="Seed nodes to retrieve"
-    )
+    p.add_argument("--graph", type=Path, default=None, help="Explicit graph path (overrides --tag)")
+    p.add_argument("--top", type=int, default=cfg.answer.top_nodes, help="Seed nodes to retrieve")
     p.add_argument("--show-facts", action="store_true", help="Print retrieved facts")
     p.set_defaults(runner="torque_to_me.query")
 
@@ -138,8 +133,7 @@ def build_parser(cfg: config.Config) -> argparse.ArgumentParser:
     p.add_argument(
         "--answer-model",
         default=cfg.answer.model,
-        help="Fast Ollama model for answering questions "
-        "(default from config.toml [answer].model)",
+        help="Fast Ollama model for answering questions (default from config.toml [answer].model)",
     )
     p.add_argument(
         "--extract-model",

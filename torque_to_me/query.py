@@ -30,8 +30,27 @@ import requests
 from torque_to_me import bike_meta, config
 
 STOPWORDS = {
-    "the", "a", "an", "for", "of", "to", "on", "in", "is", "what", "how",
-    "do", "i", "my", "and", "or", "at", "it", "with", "when", "should",
+    "the",
+    "a",
+    "an",
+    "for",
+    "of",
+    "to",
+    "on",
+    "in",
+    "is",
+    "what",
+    "how",
+    "do",
+    "i",
+    "my",
+    "and",
+    "or",
+    "at",
+    "it",
+    "with",
+    "when",
+    "should",
 }
 
 
@@ -107,7 +126,8 @@ def format_facts(graph: nx.DiGraph, nodes: set[str]) -> str:
         data = graph.nodes[node_id]
         kind = data.get("__class__") or data.get("label") or "Fact"
         attrs = {
-            k: v for k, v in data.items()
+            k: v
+            for k, v in data.items()
             if not k.startswith("__")
             and k not in ("id", "type", "label")
             and v not in (None, [], "")
@@ -171,7 +191,8 @@ Answer the question using ONLY the facts below, extracted from the service manua
 Rules:
 - If the facts do not contain the answer, say so plainly. Do not guess.
 - Quote exact values (torque, clearances, intervals) as they appear in the facts.
-- End with a "Source:" line listing the manual page numbers given in the facts you used (e.g. "Source: pages 1, 3").
+- End with a "Source:" line listing the manual page numbers given in the facts \
+you used (e.g. "Source: pages 1, 3").
 
 FACTS:
 {facts}

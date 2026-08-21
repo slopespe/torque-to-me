@@ -41,7 +41,7 @@ def run(args: argparse.Namespace) -> None:
         "template": ServiceManualChapter,
         "backend": "llm",
         "inference": "local",
-        "processing_mode": "many-to-one",   # merge whole chapter into one root object
+        "processing_mode": "many-to-one",  # merge whole chapter into one root object
         "extraction_contract": args.contract,
         # ollama_chat (not ollama): LiteLLM's ollama/ route uses the legacy
         # generate endpoint, which returns empty content for thinking models
@@ -96,12 +96,12 @@ def run(args: argparse.Namespace) -> None:
     # 3. Extraction report
     type_counts = Counter(
         data.get("__label__", data.get("label", type(data).__name__))
-        if isinstance(data, dict) else "unknown"
+        if isinstance(data, dict)
+        else "unknown"
         for _, data in graph.nodes(data=True)
     )
     edge_counts = Counter(
-        data.get("label", data.get("type", "EDGE"))
-        for _, _, data in graph.edges(data=True)
+        data.get("label", data.get("type", "EDGE")) for _, _, data in graph.edges(data=True)
     )
 
     lines = [

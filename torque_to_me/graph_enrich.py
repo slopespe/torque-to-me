@@ -29,9 +29,23 @@ from pathlib import Path
 # Generic action words stripped from procedure titles when matching them
 # against symptom text ("OIL PUMP SERVICING" should match on "oil pump").
 _TITLE_STOPWORDS = {
-    "servicing", "service", "inspection", "inspect", "cleaning", "clean",
-    "check", "checking", "replacement", "replace", "adjustment", "adjust",
-    "removal", "installation", "and", "or", "the",
+    "servicing",
+    "service",
+    "inspection",
+    "inspect",
+    "cleaning",
+    "clean",
+    "check",
+    "checking",
+    "replacement",
+    "replace",
+    "adjustment",
+    "adjust",
+    "removal",
+    "installation",
+    "and",
+    "or",
+    "the",
 }
 
 _MIN_PHRASE_LEN = 4  # ignore matches on very short fragments
