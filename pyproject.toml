@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torque-to-me"
+version = "0.1.0"
+description = "A maintenance assistant for old motorcycles, built from their scanned service manuals"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Sérgio Pereira" }]
+requires-python = ">=3.10"
+keywords = ["knowledge-graph", "rag", "ollama", "docling", "service-manual"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # Core pipeline (1.x API: run_pipeline returns PipelineContext,
+    # PipelineConfig supports extraction_contract/structured_output).
+    # docling itself arrives transitively, pinned by docling-graph.
+    "docling-graph>=1.9,<2",
+    # PDF splitting
+    "pypdf>=4.0",
+    # Query layer + demo UI
+    "networkx>=3.0",
+    "requests>=2.31",
+    "gradio>=4.0",
+    # Graph visualization
+    "pyvis>=0.3.2",
+    # TOML parsing for config.toml on Python 3.10 (stdlib tomllib is 3.11+)
+    "tomli>=2; python_version < '3.11'",
+]
+# Optional: VLM extraction path if scan quality is poor —
+# install separately: pip install "docling-graph[vlm]"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6", "pytest>=8"]
+
+[project.scripts]
+torque = "torque_to_me.cli:main"
+
+[project.urls]
+Repository = "https://github.com/slopespe/torque-to-me"
+
+[tool.setuptools.packages.find]
+include = ["torque_to_me*"]
+
+[tool.setuptools.package-data]
+torque_to_me = ["assets/*.png"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
