@@ -1,0 +1,192 @@
+[
+  {
+    "chapter_title": "LUBRICATION",
+    "procedures": [
+      {
+        "title": "ENGINE OIL LEVEL CHECK",
+        "steps": [
+          "Support the motorcycle upright on level ground.",
+          "Start the engine and let it idle for approximately 5 minutes.",
+          "Stop the engine then check the oil level with the oil filler cap/dipstick by inserting it in until the threads touch the filler neck. Do not screw the cap in when making this check.",
+          "If the oil level is below the lower mark on the dipstick, fill to the upper level mark with the recommended oil.",
+          "Change the engine oil with the engine warm and the motorcycle on its side stand to assure complete and rapid draining.",
+          "Remove the oil filler cap and drain plugs on the frame down tube and the left crankcase. After the oil has drained, check that the drain plug sealing washers are in good condition, then install the plugs.",
+          "Crankcase drain plug torque: 25 N·m (2.5 kg-m, 18 ft-Ib). Downtube drain plug torque: 35 N·m (3.5 kg-m, 25 ft-Ib)."
+        ],
+        "interval": null,
+        "tools": [],
+        "required_parts": [],
+        "torque_specs": []
+      },
+      {
+        "title": "OIL PIPE INSPECTION",
+        "steps": [
+          "Inspect the oil pipes for damage, bends or clogging and replace if necessary.",
+          "Refer to other pages for oil pipe replacement information: Oil pass pipe (page 6-3), Oil outlet pipe (page 5-4, 5), Oil inlet hose (page 5-4, 5).",
+          "Perform this maintenance before filling the engine with oil."
+        ],
+        "interval": null,
+        "tools": [],
+        "required_parts": [],
+        "torque_specs": []
+      },
+      {
+        "title": "OIL STRAINER SCREEN CLEANING",
+        "steps": [
+          "Remove the right crankcase cover (page 8-3). Remove the oil strainer and clean it. Install and secure the oil strainer with a bolt.",
+          "Install the right crankcase cover (page 8-9)."
+        ],
+        "interval": null,
+        "tools": [],
+        "required_parts": [],
+        "torque_specs": []
+      },
+      {
+        "title": "OIL STRAINER NUT CLEANING/INSPECTION",
+        "steps": [
+          "Clean the screen on the oil strainer nut before filling the frame oil tank with oil.",
+          "Remove the oil drain bolt on the frame down tube to drain the oil. Remove the skid plate (page 5-2). Loosen the oil joint nut and disconnect the hose from the oil strainer nut.",
+          "Remove the oil strainer nut from the frame down tube. Clean the screen on the oil strainer nut in solvent and blow dry with compressed air.",
+          "Reinstall and tighten the oil strainer nut at 40 N·m (4.0 kg-m, 29 ft-lb). Check that the O-ring is in good condition. Connect the oil hose and secure it with the nut at 40 N·m (4.0 kg-m, 29 ft-lb). Reinstall the skid plate (page 5-5)."
+        ],
+        "interval": null,
+        "tools": [],
+        "required_parts": [],
+        "torque_specs": []
+      },
+      {
+        "title": "OIL PUMP SERVICING",
+        "steps": [
+          "Remove: oil pump driven gear, clutch (page 8-2), orifice and O-ring.",
+          "Remove the following: oil pump attaching bolts and oil pipe - bolt, nut and oil pipe; thrust washer; lock pin. Separate the oil pump body from the oil pump cover B. Remove inner rotor B, Oil pump shaft and lock pin, Outer rotor B from cover B.",
+          "Measure tip clearance between inner and outer rotors A: SERVICE LIMIT 0.20 mm (0.008 in). Measure clearance between outer rotor A and pump body: SERVICE LIMIT 0.25 mm (0.010 in).",
+          "Wipe oil from the rotors and put a piece of plastigauge across them as shown. Install the oil pump cover A and tighten screws.",
+          "Remove oil pump cover A and measure width of plastigauge to determine end clearance: SERVICE LIMIT 0.12 mm (0.005 in).",
+          "Measure tip clearance between inner and outer rotors B with shaft installed: SERVICE LIMIT 0.20 mm (0.008 in). Measure clearance between outer rotor B and pump body: SERVICE LIMIT 0.25 mm (0.010 in). Measure end clearance of pumps A/B: SERVICE LIMIT 0.12 mm (0.005 in).",
+          "Replace oil seals if showing wear or damage.",
+          "'88 models only: Install outer rotor B with punch mark facing inside, inner rotor B on pump cover B, insert lock pin through shaft aligned with groove in inner rotor, install oil pump body onto cover B, insert dowel pins. Install thrust washer and lock pin. Install inner rotor A aligning its groove with lock pin.",
+          "Install outer rotor A with punch mark facing outside. Install pump cover A onto pump body. Tighten oil pump screws securely.",
+          "'88 models only: Pour clean engine oil into the oil pass hole in oil pump body B until it flows out of check valve housing side as turning pump shaft counterclockwise before installation.",
+          "Install orifice with new O-ring into right crankcase. Install oil pump onto right crankcase. Tighten two oil pump bolts loosely. Apply clean engine oil to new O-rings. Install oil pipe with new O-rings.",
+          "Tighten the oil pipe nut and oil pump bolts securely at 12 N·m (1.2 kg-m, 9 ft-Ib). After installation for '88 models: support motorcycle upright on firm level ground, start engine and let idle for a minute. Loosen oil pipe bolt on right crankcase cover and check that oil flows out. Tighten the oil pipe bolt.",
+          "Fill the engine with recommended oil (page 2-3). Install clutch (page 8-5) and right crankcase cover (page 8-9)."
+        ],
+        "interval": null,
+        "tools": [],
+        "required_parts": [
+          {
+            "name": "oil pump driven gear",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "clutch",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "orifice and O-ring",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "thrust washer",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "lock pin",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "Inner rotor A",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "Outer rotor A",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "Inner rotor B",
+            "part_number": null,
+            "specification": null
+          },
+          {
+            "name": "Outer rotor B",
+            "part_number": null,
+            "specification": null
+          }
+        ],
+        "torque_specs": []
+      }
+    ],
+    "torque_specs": [
+      {
+        "fastener": "Crankcase drain plug",
+        "value_nm": 25.0,
+        "thread_size": null
+      },
+      {
+        "fastener": "Down tube drain plug",
+        "value_nm": 35.0,
+        "thread_size": null
+      },
+      {
+        "fastener": "Oil filter cover bolt",
+        "value_nm": 9.0,
+        "thread_size": null
+      },
+      {
+        "fastener": "Oil strainer nut",
+        "value_nm": 40.0,
+        "thread_size": null
+      },
+      {
+        "fastener": "Oil inlet hose nut",
+        "value_nm": 40.0,
+        "thread_size": null
+      },
+      {
+        "fastener": "oil pipe bolt",
+        "value_nm": 12.0,
+        "thread_size": null
+      }
+    ],
+    "symptoms": [
+      {
+        "description": "Oil level too low",
+        "possible_causes": [
+          "Normal oil consumption",
+          "External oil leaks",
+          "Worn piston rings"
+        ]
+      },
+      {
+        "description": "External oil leaks",
+        "possible_causes": []
+      },
+      {
+        "description": "Worn piston rings",
+        "possible_causes": []
+      },
+      {
+        "description": "Oil contamination",
+        "possible_causes": [
+          "Faulty head gasket",
+          "Oil not changed often enough"
+        ]
+      },
+      {
+        "description": "Low oil pressure",
+        "possible_causes": [
+          "Oil pump driven gear broken",
+          "Faulty oil pump"
+        ]
+      }
+    ],
+    "symptom_resolutions": []
+  }
+]

@@ -1,0 +1,29 @@
+Source: demo_manual.pdf
+Model:  ollama/qwen3.5-32k  contract=dense
+
+Graph: 26 nodes, 25 edges
+
+Nodes by type:
+  Part: 9
+  TorqueSpec: 6
+  Procedure: 5
+  Symptom: 5
+  ServiceManualChapter: 1
+
+Edges by type:
+  REQUIRES: 9
+  LISTS: 6
+  CONTAINS: 5
+  COVERS: 5
+
+Sample nodes with provenance:
+  Procedure_579685a10a16c475
+    provenance: {'document_id': 'b0560d8d3e8b2bb66bb7b939a0a07542', 'match': 'verbatim', 'chunks': [0, 9], 'pages': [1, 2, 3], 'refs': ['#/tables/0', '#/texts/8', '#/texts/9', '#/texts/80']}
+  Procedure_a5f103d508eeed0a
+    provenance: {'document_id': 'b0560d8d3e8b2bb66bb7b939a0a07542', 'match': 'verbatim', 'chunks': [0, 15], 'pages': [1, 2, 4], 'refs': ['#/tables/0', '#/texts/8', '#/texts/9', '#/texts/127', '#/texts/128', '#/texts/129', '#/texts/130', '#/texts/131']}
+  Procedure_5e4a8072fe41ffc9
+    provenance: {'document_id': 'b0560d8d3e8b2bb66bb7b939a0a07542', 'match': 'verbatim', 'chunks': [0], 'pages': [1, 2], 'refs': ['#/tables/0', '#/texts/8', '#/texts/9']}
+  Procedure_e3c7653d538a16f5
+    provenance: {'status': 'unresolved'}
+  Part_78127704dcce7f4f
+    provenance: {'document_id': 'b0560d8d3e8b2bb66bb7b939a0a07542', 'match': 'verbatim', 'chunks': [8, 17, 27], 'pages': [2, 3, 5, 12, 13], 'refs': ['#/texts/41', '#/texts/42', '#/texts/77', '#/texts/78', '#/texts/167', '#/texts/168', '#/texts/169', '#/texts/170']}

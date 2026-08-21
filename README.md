@@ -13,7 +13,12 @@ is grounded with page-level provenance back to the manual. Runs fully
 local with Ollama: your manual never leaves your machine.
 
 Works with any bike whose service manual you have as a PDF. Built and
-tested on a 1990s Honda NX650 Dominator.
+tested on a 1990s Honda NX650 Dominator — the graph it produced ships in
+[`examples/honda-nx650/`](examples/honda-nx650/), so you can try the
+query layer and the app before extracting anything yourself.
+
+Design rationale lives in [`docs/architecture.md`](docs/architecture.md);
+release history in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it works
 
@@ -287,6 +292,8 @@ torque-to-me/
 │   └── templates/
 │       └── service_manual.py # extraction schema (bike-agnostic)
 ├── tests/                    # pure-logic unit tests (no LLM needed)
+├── docs/architecture.md      # design rationale
+├── examples/honda-nx650/     # a real extracted graph, ready to query
 ├── data/input/               # your manual PDFs (gitignored)
 └── outputs/<bike-tag>/       # one graph per bike (gitignored)
 ```

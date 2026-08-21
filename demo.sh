@@ -19,6 +19,13 @@ if ! curl -s http://localhost:11434 > /dev/null; then
     exit 1
 fi
 
+# First run: seed the bundled example graph so there is something to query.
+if ! ls outputs/*/graph.pickle > /dev/null 2>&1; then
+    echo "No graphs in outputs/ yet — seeding the Honda NX650 example."
+    mkdir -p outputs
+    cp -R examples/honda-nx650 outputs/demo
+fi
+
 ANSWER_MODEL="${1:-$(.venv/bin/python -c "
 from torque_to_me.config import load
 print(load().answer.model)")}"
