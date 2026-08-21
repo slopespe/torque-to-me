@@ -1,29 +1,17 @@
-#!/usr/bin/env python3
 """
 Cut a page range out of the manual so the pipeline runs on one chapter.
 
 Usage:
-    python scripts/01_split_pdf.py data/input/manual.pdf \
+    torque split data/input/manual.pdf \
         --pages 20-45 --output data/input/chapter_maintenance.pdf
 """
 
 import argparse
-from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Split a page range out of a PDF")
-    parser.add_argument("pdf", type=Path, help="Source PDF")
-    parser.add_argument(
-        "--pages",
-        required=True,
-        help="1-based inclusive page range, e.g. 20-45",
-    )
-    parser.add_argument("--output", type=Path, required=True, help="Output PDF path")
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> None:
     start_s, _, end_s = args.pages.partition("-")
     start, end = int(start_s), int(end_s or start_s)
 
@@ -41,7 +29,3 @@ def main() -> None:
         writer.write(f)
 
     print(f"Wrote pages {start}-{end} ({end - start + 1} pages) -> {args.output}")
-
-
-if __name__ == "__main__":
-    main()

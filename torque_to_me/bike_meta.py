@@ -7,11 +7,34 @@ optional and the UI falls back to the tag.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import networkx as nx
 
 META_FILENAME = "meta.json"
+
+
+def resolve_graph_path(tag: str | None, graph: Path | None, outputs: Path = Path("outputs")) -> Path:
+    """Resolve which graph.pickle a command should use.
+
+    Explicit --graph wins; otherwise --tag; otherwise the single existing
+    graph. Exits with guidance when nothing (or too much) matches.
+    """
+    if graph is None:
+        candidates = sorted(outputs.glob("*/graph.pickle"))
+        if tag:
+            graph = outputs / tag / "graph.pickle"
+        elif len(candidates) == 1:
+            graph = candidates[0]
+        elif not candidates:
+            sys.exit(f"No graphs found under {outputs}/. Run `torque extract` first.")
+        else:
+            tags = ", ".join(c.parent.name for c in candidates)
+            sys.exit(f"Multiple graphs found ({tags}). Pick one with --tag.")
+    if not graph.exists():
+        sys.exit(f"Graph not found at {graph}. Run `torque extract` first.")
+    return graph
 
 
 def load(bike_dir: Path) -> dict:

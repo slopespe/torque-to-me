@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Hand-curated additions to a demo graph: the human-in-the-loop pass.
 
@@ -13,8 +12,8 @@ provenance. Values below were read from the Honda NX650 chapter 2
 Curated nodes/edges carry match='curated' / derived='curated' so they stay
 distinguishable from LLM-extracted ones.
 
-Usage (after 03_extract.py, idempotent):
-    python scripts/curate_demo.py --tag demo
+Usage (after `torque extract`, idempotent):
+    torque curate-demo --tag demo
 """
 
 import argparse
@@ -168,14 +167,10 @@ def curate(graph) -> None:
             pass
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Apply hand-curated additions to the demo graph")
-    parser.add_argument("--tag", default="demo", help="Manual tag (outputs/<tag>/graph.pickle)")
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> None:
     graph_path = Path("outputs") / args.tag / "graph.pickle"
     if not graph_path.exists():
-        sys.exit(f"Graph not found: {graph_path}. Run scripts/03_extract.py first.")
+        sys.exit(f"Graph not found: {graph_path}. Run `torque extract` first.")
 
     with open(graph_path, "rb") as f:
         graph = pickle.load(f)
@@ -188,7 +183,3 @@ def main() -> None:
 
     print(f"Curated {graph_path}: {before[0]} -> {graph.number_of_nodes()} nodes, "
           f"{before[1]} -> {graph.number_of_edges()} edges")
-
-
-if __name__ == "__main__":
-    main()

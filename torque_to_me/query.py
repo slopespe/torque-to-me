@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Answer a maintenance question from the knowledge graph.
 
@@ -13,10 +12,10 @@ Pipeline per question:
      pages.
 
 Usage:
-    python scripts/04_query.py "torque for the rear axle nut"
-    python scripts/04_query.py "how do I adjust valve clearance" --model gemma3:12b
+    torque query "torque for the rear axle nut"
+    torque query "how do I adjust valve clearance" --model gemma3:12b
     # model, thinking mode, context size etc. come from config.toml
-    python scripts/04_query.py "engine runs rich at idle" --show-facts
+    torque query "engine runs rich at idle" --show-facts
 """
 
 import argparse
@@ -24,14 +23,11 @@ import json
 import pickle
 import re
 import sys
-from pathlib import Path
 
 import networkx as nx
 import requests
 
-import torque_config
-
-CFG = torque_config.load()
+from torque_to_me import bike_meta, config
 
 STOPWORDS = {
     "the", "a", "an", "for", "of", "to", "on", "in", "is", "what", "how",
@@ -125,36 +121,36 @@ def format_facts(graph: nx.DiGraph, nodes: set[str]) -> str:
     return "\n".join(lines)
 
 
-def stream_ollama(model: str, prompt: str, cfg: torque_config.AnswerConfig = None):
+def stream_ollama(model: str, prompt: str, cfg: config.Config):
     """Yield ("thinking" | "response", chunk) pairs as Ollama streams them.
 
     Thinking models reason for minutes before the first response token;
     streaming lets callers show progress instead of a dead UI.
     """
-    cfg = cfg or CFG.answer
+    answer = cfg.answer
     payload = {
         "model": model,
         "prompt": prompt,
         "stream": True,
-        "options": {"num_ctx": cfg.num_ctx},
+        "options": {"num_ctx": answer.num_ctx},
     }
-    if cfg.think is not None:
-        payload["think"] = cfg.think
+    if answer.think is not None:
+        payload["think"] = answer.think
 
     resp = requests.post(
-        f"{CFG.ollama.url}/api/generate",
+        f"{cfg.ollama.url}/api/generate",
         json=payload,
         stream=True,
-        timeout=(10, cfg.timeout_s),
+        timeout=(10, answer.timeout_s),
     )
     if resp.status_code == 400 and "think" in payload and "think" in resp.text:
         # Model doesn't support thinking modes (e.g. gemma3) — retry without.
         del payload["think"]
         resp = requests.post(
-            f"{CFG.ollama.url}/api/generate",
+            f"{cfg.ollama.url}/api/generate",
             json=payload,
             stream=True,
-            timeout=(10, cfg.timeout_s),
+            timeout=(10, answer.timeout_s),
         )
     with resp:
         resp.raise_for_status()
@@ -185,40 +181,8 @@ QUESTION: {question}
 ANSWER:"""
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Query the maintenance knowledge graph")
-    parser.add_argument("question", help="Maintenance question")
-    parser.add_argument(
-        "--model", default=CFG.answer.model,
-        help="Ollama model (default from config.toml [answer].model)",
-    )
-    parser.add_argument(
-        "--tag",
-        default=None,
-        help="Manual tag used at extraction (outputs/<tag>/graph.pickle). "
-        "If omitted and exactly one graph exists, it is used.",
-    )
-    parser.add_argument("--graph", type=Path, default=None, help="Explicit graph path (overrides --tag)")
-    parser.add_argument(
-        "--top", type=int, default=CFG.answer.top_nodes, help="Seed nodes to retrieve"
-    )
-    parser.add_argument("--show-facts", action="store_true", help="Print retrieved facts")
-    args = parser.parse_args()
-
-    if args.graph is None:
-        candidates = sorted(Path("outputs").glob("*/graph.pickle"))
-        if args.tag:
-            args.graph = Path("outputs") / args.tag / "graph.pickle"
-        elif len(candidates) == 1:
-            args.graph = candidates[0]
-        elif not candidates:
-            sys.exit("No graphs found under outputs/. Run scripts/03_extract.py first.")
-        else:
-            tags = ", ".join(c.parent.name for c in candidates)
-            sys.exit(f"Multiple graphs found ({tags}). Pick one with --tag.")
-
-    if not args.graph.exists():
-        sys.exit(f"Graph not found at {args.graph}. Run scripts/03_extract.py first.")
+def run(args: argparse.Namespace) -> None:
+    args.graph = bike_meta.resolve_graph_path(args.tag, args.graph)
 
     bike = args.graph.parent.name.replace("-", " ").replace("_", " ")
 
@@ -240,7 +204,7 @@ def main() -> None:
 
     prompt = PROMPT_TEMPLATE.format(facts=facts, question=args.question, bike=bike)
     thinking_noted = False
-    for kind, chunk in stream_ollama(args.model, prompt):
+    for kind, chunk in stream_ollama(args.model, prompt, args.cfg):
         if kind == "thinking":
             if not thinking_noted:
                 print("(model is thinking...)", file=sys.stderr)
@@ -248,7 +212,3 @@ def main() -> None:
             continue
         print(chunk, end="", flush=True)
     print()
-
-
-if __name__ == "__main__":
-    main()

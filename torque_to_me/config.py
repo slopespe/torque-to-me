@@ -2,9 +2,9 @@
 
 Precedence, lowest to highest:
   1. Built-in defaults (the dataclasses below)
-  2. config.toml at the project root (or the file named by the
+  2. config.toml in the current directory (or the file named by the
      TORQUE_TO_ME_CONFIG environment variable)
-  3. CLI flags (each script passes explicit values over these)
+  3. CLI flags (each subcommand passes explicit values over these)
 
 Every key in config.toml is optional; unknown keys produce a warning so
 typos don't silently fall back to defaults.
@@ -23,7 +23,6 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     except ModuleNotFoundError:
         tomllib = None
 
-ROOT = Path(__file__).resolve().parents[1]
 ENV_VAR = "TORQUE_TO_ME_CONFIG"
 
 
@@ -78,7 +77,7 @@ def _build(section_cls, data: dict, section: str):
 
 def load(path: str | Path | None = None) -> Config:
     """Load configuration; missing file or keys fall back to defaults."""
-    candidate = Path(path or os.environ.get(ENV_VAR) or ROOT / "config.toml")
+    candidate = Path(path or os.environ.get(ENV_VAR) or Path.cwd() / "config.toml")
     raw = {}
     if candidate.exists():
         if tomllib is None:

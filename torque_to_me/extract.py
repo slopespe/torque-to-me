@@ -1,20 +1,18 @@
-#!/usr/bin/env python3
 """
 Run the docling-graph pipeline on a manual chapter with a local Ollama
 model, then persist the knowledge graph and an extraction report.
 
 Usage:
-    python scripts/03_extract.py data/input/chapter_maintenance.pdf \
-        --model qwen3.5-32k
+    torque extract data/input/chapter_maintenance.pdf --model qwen3.5-32k
 
-Outputs:
-    outputs/graph.pickle          NetworkX DiGraph (used by 04/05/06)
-    outputs/models.json           Raw extracted objects for spot-checking
-    outputs/extraction_report.txt Node/edge counts and sample provenance
+Outputs (per manual, under outputs/<tag>/):
+    graph.pickle          NetworkX DiGraph (used by query/app/viz)
+    models.json           Raw extracted objects for spot-checking
+    extraction_report.txt Node/edge counts and sample provenance
 
-Note on config keys: docling-graph is a young library (0.2.x) and the
-run_pipeline config occasionally changes between versions. The dict below
-follows the documented API. If a key is rejected, check the current README:
+Note on config keys: the run_pipeline config occasionally changes between
+docling-graph versions (this repo pins >=1.9,<2). The dict below follows
+the documented API. If a key is rejected, check the current README:
 https://github.com/docling-project/docling-graph
 """
 
@@ -23,55 +21,15 @@ import json
 import pickle
 import sys
 from collections import Counter
-from pathlib import Path
 
-# Make templates/ importable when run from the project root
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from docling_graph import PipelineContext, run_pipeline
 
-from templates.service_manual import ServiceManualChapter  # noqa: E402
-
-from docling_graph import PipelineContext, run_pipeline  # noqa: E402
-from graph_enrich import enrich  # noqa: E402
-import bike_meta  # noqa: E402
-import torque_config  # noqa: E402
-
-CFG = torque_config.load()
+from torque_to_me import bike_meta
+from torque_to_me.graph_enrich import enrich
+from torque_to_me.templates.service_manual import ServiceManualChapter
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract knowledge graph from manual chapter")
-    parser.add_argument("pdf", type=Path, help="Chapter PDF")
-    parser.add_argument(
-        "--model", default=CFG.extract.model,
-        help="Ollama model name (default from config.toml [extract].model)",
-    )
-    parser.add_argument(
-        "--contract",
-        default="dense",
-        choices=["auto", "dense"],
-        help="Extraction contract; 'dense' = skeleton-then-flesh, better for complex docs",
-    )
-    parser.add_argument(
-        "--tag",
-        default=None,
-        help="Name for this manual, e.g. 'honda-nx650'. Defaults to the PDF filename. "
-        "Outputs go to outputs/<tag>/ so multiple bikes can coexist.",
-    )
-    parser.add_argument(
-        "--name",
-        default=None,
-        help="Bike display name shown in the app, e.g. 'Honda NX650 RD08'. "
-        "Defaults to the tag.",
-    )
-    parser.add_argument(
-        "--chapter",
-        default=None,
-        help="Manual chapter this PDF covers, e.g. 'Lubrication'. "
-        "Auto-detected from the extraction when omitted.",
-    )
-    parser.add_argument("--outdir", type=Path, default=Path("outputs"))
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> None:
     if not args.pdf.exists():
         sys.exit(f"File not found: {args.pdf}")
 
@@ -97,10 +55,10 @@ def main() -> None:
         # Ollama serves one request at a time, so parallel workers only queue
         # up and trip the timeout; a single worker with a generous timeout is
         # faster in practice for local thinking models.
-        "parallel_workers": CFG.extract.parallel_workers,
+        "parallel_workers": args.cfg.extract.parallel_workers,
         "llm_overrides": {
-            "max_output_tokens": CFG.extract.max_output_tokens,
-            "reliability": {"timeout_s": CFG.extract.timeout_s},
+            "max_output_tokens": args.cfg.extract.max_output_tokens,
+            "reliability": {"timeout_s": args.cfg.extract.timeout_s},
         },
     }
 
@@ -174,7 +132,3 @@ def main() -> None:
     print(f"        {report_path}")
     print("\nGATE: open models.json, pick 10 facts (torque values, intervals),")
     print("check them against the paper manual. Target 9/10 correct before Stage 3.")
-
-
-if __name__ == "__main__":
-    main()

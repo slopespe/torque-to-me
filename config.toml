@@ -1,14 +1,15 @@
 # Torque to Me configuration.
 #
 # Every key is optional — missing keys use the built-in defaults in
-# scripts/torque_config.py. CLI flags (e.g. --model) override this file.
-# Point TORQUE_TO_ME_CONFIG at another file to use a different config.
+# torque_to_me/config.py. CLI flags (e.g. --model) override this file.
+# The file is looked up in the current directory; point TORQUE_TO_ME_CONFIG
+# at another file to use a different config.
 
 [ollama]
 url = "http://localhost:11434"
 
 [answer]
-# Fast model for answering questions in the app and 04_query.py.
+# Fast model for answering questions in the app and `torque query`.
 model = "gemma4:12b"
 # Thinking mode: false = answer in seconds, true = reason for minutes
 # (better on hard questions). Models that don't support thinking (e.g.

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Deterministic graph enrichment: recover cross-links that the LLM captured
 as prose instead of filling the relational fields.
@@ -18,7 +17,7 @@ Derived edges carry {'derived': 'text-match'} so they stay distinguishable
 from LLM-extracted ones.
 
 Usage (existing outputs, no re-extraction):
-    python scripts/graph_enrich.py --tag demo
+    torque enrich --tag demo
 """
 
 import argparse
@@ -105,12 +104,7 @@ def enrich(graph) -> dict:
     return stats
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Add derived cross-link edges to an extracted graph")
-    parser.add_argument("--tag", default=None, help="Manual tag, e.g. 'demo' (reads outputs/<tag>/graph.pickle)")
-    parser.add_argument("--graph", type=Path, default=None, help="Explicit path to a graph.pickle")
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> None:
     if args.graph:
         graph_path = args.graph
     elif args.tag:
@@ -133,7 +127,3 @@ def main() -> None:
     print(f"Enriched {graph_path}: {before} -> {graph.number_of_edges()} edges")
     for label, count in stats.items():
         print(f"  +{count} {label}")
-
-
-if __name__ == "__main__":
-    main()

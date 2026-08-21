@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Torque to Me — a maintenance assistant for old motorcycles.
 
@@ -15,45 +14,31 @@ Graphs are stored per bike under outputs/<tag>/graph.pickle, so several
 motorcycles can live side by side.
 
 Usage:
-    python scripts/05_app.py
+    torque app
     # then open http://localhost:7860
 
-Models and their settings come from config.toml (see scripts/
-torque_config.py for the defaults); --answer-model / --extract-model
-override it. Two models: a fast one answers questions in seconds; the
-slower thinking model is only used when building a graph from a manual.
+Models and their settings come from config.toml (see
+torque_to_me/config.py for the defaults); --answer-model /
+--extract-model override it. Two models: a fast one answers questions in
+seconds; the slower thinking model is only used when building a graph
+from a manual.
 """
 
 import argparse
 import functools
-import importlib.util
 import pickle
 import re
 import shutil
-import sys
 from pathlib import Path
 
 import gradio as gr
 import networkx as nx
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from torque_to_me import bike_meta, config, graph_viz
+from torque_to_me import query as q
 
-import bike_meta  # noqa: E402
-import graph_viz  # noqa: E402
-import torque_config  # noqa: E402
-
-CFG = torque_config.load()
-
-# Import the query module (filename starts with a digit, so load by path)
-_spec = importlib.util.spec_from_file_location(
-    "query_layer", Path(__file__).resolve().parent / "04_query.py"
-)
-q = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(q)
-
-OUTPUTS = ROOT / "outputs"
+OUTPUTS = Path("outputs")
+ICON = Path(__file__).resolve().parent / "assets" / "icon.png"
 
 EXAMPLES = [
     "What oil does the engine take and how much?",
@@ -90,7 +75,7 @@ def slugify(name: str) -> str:
 # Ingestion (upload -> knowledge graph)
 # ----------------------------------------------------------------------
 
-def ingest(pdf_file, bike_name: str, chapter: str, model: str):
+def ingest(pdf_file, bike_name: str, chapter: str, model: str, cfg: config.Config):
     """Run the docling-graph pipeline on an uploaded manual."""
     if pdf_file is None:
         yield "Upload a PDF first."
@@ -116,10 +101,13 @@ def ingest(pdf_file, bike_name: str, chapter: str, model: str):
     )
 
     try:
+        # Imported lazily so the app starts fast; extraction dependencies
+        # only load when a manual is actually uploaded.
         from docling_graph import run_pipeline
-        from templates.service_manual import ServiceManualChapter
 
-        config = {
+        from torque_to_me.templates.service_manual import ServiceManualChapter
+
+        pipeline_config = {
             "source": str(dest),
             "template": ServiceManualChapter,
             "backend": "llm",
@@ -127,24 +115,25 @@ def ingest(pdf_file, bike_name: str, chapter: str, model: str):
             "processing_mode": "many-to-one",
             "extraction_contract": "dense",
             # ollama_chat: the legacy ollama/ route returns empty content
-            # for thinking models (see scripts/03_extract.py).
+            # for thinking models (see extract.py).
             "provider_override": "ollama_chat",
             "model_override": model,
             "structured_output": True,
             "use_chunking": True,
             # Single worker + long timeout: Ollama serves one request at a
-            # time (see scripts/03_extract.py).
-            "parallel_workers": CFG.extract.parallel_workers,
+            # time (see extract.py).
+            "parallel_workers": cfg.extract.parallel_workers,
             "llm_overrides": {
-                "max_output_tokens": CFG.extract.max_output_tokens,
-                "reliability": {"timeout_s": CFG.extract.timeout_s},
+                "max_output_tokens": cfg.extract.max_output_tokens,
+                "reliability": {"timeout_s": cfg.extract.timeout_s},
             },
         }
-        context = run_pipeline(config)
+        context = run_pipeline(pipeline_config)
         graph = context.knowledge_graph
 
         # Recover cross-links the LLM left as prose (see graph_enrich.py).
-        from graph_enrich import enrich
+        from torque_to_me.graph_enrich import enrich
+
         enrich(graph)
 
         with open(outdir / "graph.pickle", "wb") as f:
@@ -178,7 +167,7 @@ def ingest(pdf_file, bike_name: str, chapter: str, model: str):
 # Question answering
 # ----------------------------------------------------------------------
 
-def answer(tag: str, question: str, model: str):
+def answer(tag: str, question: str, model: str, cfg: config.Config):
     """Retrieve facts, then stream the model's answer.
 
     A generator so the provenance panel (subgraph plot + text facts) fills
@@ -198,7 +187,7 @@ def answer(tag: str, question: str, model: str):
         yield "Nothing in this manual's graph matches that question.", "", ""
         return
 
-    seeds = [node_id for node_id, _ in ranked[: CFG.answer.top_nodes]]
+    seeds = [node_id for node_id, _ in ranked[: cfg.answer.top_nodes]]
     nodes = q.collect_subgraph(graph, seeds)
     facts = q.format_facts(graph, nodes)
     subgraph = graph_viz.subgraph_iframe(graph, nodes, seeds=set(seeds))
@@ -209,7 +198,7 @@ def answer(tag: str, question: str, model: str):
     reply_parts = []
     thinking_shown = False
     try:
-        for kind, chunk in q.stream_ollama(model, prompt):
+        for kind, chunk in q.stream_ollama(model, prompt, cfg):
             if kind == "thinking":
                 if not thinking_shown:
                     thinking_shown = True
@@ -228,7 +217,7 @@ def answer(tag: str, question: str, model: str):
 # UI
 # ----------------------------------------------------------------------
 
-def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
+def build_app(answer_model: str, extract_model: str, cfg: config.Config) -> gr.Blocks:
     with gr.Blocks(title="Torque to Me") as app:
         gr.Markdown(
             "# Torque to Me\n"
@@ -283,7 +272,7 @@ def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
             # generator's yields if it can see a generator function.
             gr.on(
                 [ask_btn.click, question.submit],
-                functools.partial(answer, model=answer_model),
+                functools.partial(answer, model=answer_model, cfg=cfg),
                 inputs=[bike_dd, question],
                 outputs=[answer_box, subgraph_box, facts_box],
             )
@@ -291,7 +280,7 @@ def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
         with gr.Tab("Your manual"):
             gr.Markdown(
                 "Upload one **chapter** of your bike's service manual "
-                "(use `scripts/01_split_pdf.py` to cut it out; the "
+                "(use `torque split` to cut it out; the "
                 "maintenance chapter with the torque tables is the best "
                 "start). Whole manuals work but take much longer and "
                 "extract worse."
@@ -309,7 +298,7 @@ def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
             build_btn = gr.Button("Build knowledge graph", variant="primary")
             status = gr.Textbox(label="Status", lines=8, interactive=False)
             build_btn.click(
-                functools.partial(ingest, model=extract_model),
+                functools.partial(ingest, model=extract_model, cfg=cfg),
                 inputs=[pdf_in, name_in, chapter_in],
                 outputs=status,
             )
@@ -317,21 +306,7 @@ def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
     return app
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Torque to Me demo UI")
-    parser.add_argument(
-        "--answer-model", default=CFG.answer.model,
-        help="Fast Ollama model for answering questions "
-        "(default from config.toml [answer].model)",
-    )
-    parser.add_argument(
-        "--extract-model", default=CFG.extract.model,
-        help="Ollama model for building knowledge graphs; needs a 32k context "
-        "(default from config.toml [extract].model)",
-    )
-    parser.add_argument("--port", type=int, default=7860)
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> None:
     OUTPUTS.mkdir(exist_ok=True)
     bikes = list_bikes()
     print(
@@ -339,8 +314,7 @@ def main() -> None:
         f"{', '.join(label for label, _ in bikes) or 'none yet'}"
     )
     print(f"Answering with {args.answer_model}, extracting with {args.extract_model}")
-    build_app(args.answer_model, args.extract_model).launch(server_port=args.port)
-
-
-if __name__ == "__main__":
-    main()
+    build_app(args.answer_model, args.extract_model, args.cfg).launch(
+        server_port=args.port,
+        favicon_path=str(ICON) if ICON.exists() else None,
+    )

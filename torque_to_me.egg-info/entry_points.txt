@@ -1,0 +1,2 @@
+[console_scripts]
+torque = torque_to_me.cli:main
