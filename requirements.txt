@@ -1,0 +1,16 @@
+# Core pipeline
+docling-graph>=0.2.4
+
+# PDF splitting
+pypdf>=4.0
+
+# Query layer + demo UI
+networkx>=3.0
+requests>=2.31
+gradio>=4.0
+
+# Graph visualization
+pyvis>=0.3.2
+
+# Optional: VLM extraction path if scan quality is poor
+# Install separately: pip install "docling-graph[vlm]"
