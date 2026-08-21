@@ -5,6 +5,10 @@
 # Torque to Me
 
 [![CI](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml/badge.svg)](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Local only](https://img.shields.io/badge/inference-100%25%20local%20(Ollama)-orange)](https://ollama.com)
 
 A maintenance assistant for old motorcycles, built from their scanned
 service manuals with [docling-graph](https://github.com/docling-project/docling-graph).
