@@ -15,11 +15,17 @@ Graphs are stored per bike under outputs/<tag>/graph.pickle, so several
 motorcycles can live side by side.
 
 Usage:
-    python scripts/05_app.py --model qwen2.5:14b
+    python scripts/05_app.py
     # then open http://localhost:7860
+
+Models and their settings come from config.toml (see scripts/
+torque_config.py for the defaults); --answer-model / --extract-model
+override it. Two models: a fast one answers questions in seconds; the
+slower thinking model is only used when building a graph from a manual.
 """
 
 import argparse
+import functools
 import importlib.util
 import pickle
 import re
@@ -32,6 +38,13 @@ import networkx as nx
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import bike_meta  # noqa: E402
+import graph_viz  # noqa: E402
+import torque_config  # noqa: E402
+
+CFG = torque_config.load()
 
 # Import the query module (filename starts with a digit, so load by path)
 _spec = importlib.util.spec_from_file_location(
@@ -43,11 +56,11 @@ _spec.loader.exec_module(q)
 OUTPUTS = ROOT / "outputs"
 
 EXAMPLES = [
-    "What is the torque for the rear axle nut?",
-    "How do I adjust the valve clearance?",
-    "The engine runs rich at idle, what should I check?",
     "What oil does the engine take and how much?",
-    "When should the drive chain be replaced?",
+    "What is the torque for the oil drain plug?",
+    "How do I check the engine oil level?",
+    "How do I clean the oil strainer screen?",
+    "The oil level keeps dropping, what could be the cause?",
 ]
 
 
@@ -55,8 +68,12 @@ EXAMPLES = [
 # Graph registry
 # ----------------------------------------------------------------------
 
-def list_bikes() -> list[str]:
-    return sorted(p.parent.name for p in OUTPUTS.glob("*/graph.pickle"))
+def list_bikes() -> list[tuple[str, str]]:
+    """(label, tag) dropdown choices: 'Honda NX650 RD08 — Lubrication'."""
+    return sorted(
+        ((bike_meta.label(p.parent), p.parent.name) for p in OUTPUTS.glob("*/graph.pickle")),
+        key=lambda pair: pair[0].lower(),
+    )
 
 
 def load_graph(tag: str) -> nx.DiGraph:
@@ -73,14 +90,15 @@ def slugify(name: str) -> str:
 # Ingestion (upload -> knowledge graph)
 # ----------------------------------------------------------------------
 
-def ingest(pdf_file, bike_name: str, model: str):
+def ingest(pdf_file, bike_name: str, chapter: str, model: str):
     """Run the docling-graph pipeline on an uploaded manual."""
     if pdf_file is None:
         yield "Upload a PDF first."
         return
     if not bike_name or not bike_name.strip():
-        yield "Give the bike a name first (e.g. 'Honda NX650')."
+        yield "Give the bike a name first (e.g. 'Honda NX650 RD08')."
         return
+    bike_name = bike_name.strip()
 
     tag = slugify(bike_name)
     outdir = OUTPUTS / tag
@@ -116,10 +134,10 @@ def ingest(pdf_file, bike_name: str, model: str):
             "use_chunking": True,
             # Single worker + long timeout: Ollama serves one request at a
             # time (see scripts/03_extract.py).
-            "parallel_workers": 1,
+            "parallel_workers": CFG.extract.parallel_workers,
             "llm_overrides": {
-                "max_output_tokens": 16000,
-                "reliability": {"timeout_s": 900},
+                "max_output_tokens": CFG.extract.max_output_tokens,
+                "reliability": {"timeout_s": CFG.extract.timeout_s},
             },
         }
         context = run_pipeline(config)
@@ -131,6 +149,13 @@ def ingest(pdf_file, bike_name: str, model: str):
 
         with open(outdir / "graph.pickle", "wb") as f:
             pickle.dump(graph, f)
+
+        # Chapter typed by the user, else the title the extraction found.
+        bike_meta.write(
+            outdir,
+            name=bike_name,
+            chapter=(chapter or "").strip() or bike_meta.chapter_from_graph(graph),
+        )
 
         yield (
             f"Done. Knowledge graph for '{bike_name}': "
@@ -154,34 +179,56 @@ def ingest(pdf_file, bike_name: str, model: str):
 # ----------------------------------------------------------------------
 
 def answer(tag: str, question: str, model: str):
+    """Retrieve facts, then stream the model's answer.
+
+    A generator so the provenance panel (subgraph plot + text facts) fills
+    in immediately — retrieval is milliseconds — while the model works.
+    """
     question = (question or "").strip()
     if not tag:
-        return "Pick a bike first (or build one in the 'Your manual' tab).", ""
+        yield "Pick a bike first (or build one in the 'Your manual' tab).", "", ""
+        return
     if not question:
-        return "Ask a maintenance question.", ""
+        yield "Ask a maintenance question.", "", ""
+        return
 
     graph = load_graph(tag)
     ranked = q.score_nodes(graph, question)
     if not ranked:
-        return "Nothing in this manual's graph matches that question.", ""
+        yield "Nothing in this manual's graph matches that question.", "", ""
+        return
 
-    seeds = [node_id for node_id, _ in ranked[:4]]
+    seeds = [node_id for node_id, _ in ranked[: CFG.answer.top_nodes]]
     nodes = q.collect_subgraph(graph, seeds)
     facts = q.format_facts(graph, nodes)
-    bike = tag.replace("-", " ")
+    subgraph = graph_viz.subgraph_iframe(graph, nodes, seeds=set(seeds))
+    bike = bike_meta.display_name(OUTPUTS / tag)
     prompt = q.PROMPT_TEMPLATE.format(facts=facts, question=question, bike=bike)
+
+    yield "*Reading the manual...*", subgraph, facts
+    reply_parts = []
+    thinking_shown = False
     try:
-        reply = q.ask_ollama(model, prompt).strip()
+        for kind, chunk in q.stream_ollama(model, prompt):
+            if kind == "thinking":
+                if not thinking_shown:
+                    thinking_shown = True
+                    yield (
+                        "*Thinking... (a thinking model can take a few minutes)*",
+                        gr.skip(), gr.skip(),
+                    )
+                continue
+            reply_parts.append(chunk)
+            yield "".join(reply_parts), gr.skip(), gr.skip()
     except Exception as e:  # noqa: BLE001
-        reply = f"Ollama call failed: {e}\nIs `ollama serve` running?"
-    return reply, facts
+        yield f"Ollama call failed: {e}\nIs `ollama serve` running?", gr.skip(), gr.skip()
 
 
 # ----------------------------------------------------------------------
 # UI
 # ----------------------------------------------------------------------
 
-def build_app(model: str) -> gr.Blocks:
+def build_app(answer_model: str, extract_model: str) -> gr.Blocks:
     with gr.Blocks(title="Torque to Me") as app:
         gr.Markdown(
             "# Torque to Me\n"
@@ -194,9 +241,10 @@ def build_app(model: str) -> gr.Blocks:
 
         with gr.Tab("Torque to me"):
             with gr.Row():
+                bikes = list_bikes()
                 bike_dd = gr.Dropdown(
-                    choices=list_bikes(),
-                    value=(list_bikes()[0] if list_bikes() else None),
+                    choices=bikes,
+                    value=(bikes[0][1] if bikes else None),
                     label="Bike",
                     scale=3,
                 )
@@ -211,24 +259,33 @@ def build_app(model: str) -> gr.Blocks:
                     gr.Examples(examples=EXAMPLES, inputs=question)
                     answer_box = gr.Markdown(label="Answer")
                 with gr.Column(scale=2):
-                    facts_box = gr.Textbox(
-                        label="Retrieved graph facts (provenance)",
-                        lines=22,
-                        interactive=False,
+                    gr.Markdown(
+                        "**Retrieved subgraph (provenance)** — the nodes and "
+                        "relations the answer is grounded in; retrieval hits "
+                        "have a dark border, neighbors were pulled in with "
+                        "them. Drag to rearrange, hover for details."
                     )
+                    gr.HTML(graph_viz.legend_html())
+                    subgraph_box = gr.HTML()
+                    with gr.Accordion(
+                        "Facts as text (exactly what the model sees)", open=False
+                    ):
+                        facts_box = gr.Textbox(
+                            show_label=False,
+                            lines=14,
+                            interactive=False,
+                        )
 
             refresh_btn.click(
                 lambda: gr.update(choices=list_bikes()), outputs=bike_dd
             )
-            ask_btn.click(
-                lambda tag, qn: answer(tag, qn, model),
+            # functools.partial, not a lambda: Gradio only streams the
+            # generator's yields if it can see a generator function.
+            gr.on(
+                [ask_btn.click, question.submit],
+                functools.partial(answer, model=answer_model),
                 inputs=[bike_dd, question],
-                outputs=[answer_box, facts_box],
-            )
-            question.submit(
-                lambda tag, qn: answer(tag, qn, model),
-                inputs=[bike_dd, question],
-                outputs=[answer_box, facts_box],
+                outputs=[answer_box, subgraph_box, facts_box],
             )
 
         with gr.Tab("Your manual"):
@@ -240,14 +297,20 @@ def build_app(model: str) -> gr.Blocks:
                 "extract worse."
             )
             pdf_in = gr.File(label="Service manual chapter (PDF)", file_types=[".pdf"])
-            name_in = gr.Textbox(
-                label="Bike name", placeholder="e.g. Honda NX650 Dominator"
-            )
+            with gr.Row():
+                name_in = gr.Textbox(
+                    label="Bike name", placeholder="e.g. Honda NX650 RD08", scale=3
+                )
+                chapter_in = gr.Textbox(
+                    label="Chapter (optional)",
+                    placeholder="e.g. Lubrication — auto-detected if left empty",
+                    scale=2,
+                )
             build_btn = gr.Button("Build knowledge graph", variant="primary")
             status = gr.Textbox(label="Status", lines=8, interactive=False)
             build_btn.click(
-                lambda f, n: ingest(f, n, model),
-                inputs=[pdf_in, name_in],
+                functools.partial(ingest, model=extract_model),
+                inputs=[pdf_in, name_in, chapter_in],
                 outputs=status,
             )
 
@@ -256,14 +319,27 @@ def build_app(model: str) -> gr.Blocks:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Torque to Me demo UI")
-    parser.add_argument("--model", default="qwen2.5:14b", help="Ollama model")
+    parser.add_argument(
+        "--answer-model", default=CFG.answer.model,
+        help="Fast Ollama model for answering questions "
+        "(default from config.toml [answer].model)",
+    )
+    parser.add_argument(
+        "--extract-model", default=CFG.extract.model,
+        help="Ollama model for building knowledge graphs; needs a 32k context "
+        "(default from config.toml [extract].model)",
+    )
     parser.add_argument("--port", type=int, default=7860)
     args = parser.parse_args()
 
     OUTPUTS.mkdir(exist_ok=True)
     bikes = list_bikes()
-    print(f"Found {len(bikes)} bike graph(s): {', '.join(bikes) or 'none yet'}")
-    build_app(args.model).launch(server_port=args.port)
+    print(
+        f"Found {len(bikes)} bike graph(s): "
+        f"{', '.join(label for label, _ in bikes) or 'none yet'}"
+    )
+    print(f"Answering with {args.answer_model}, extracting with {args.extract_model}")
+    build_app(args.answer_model, args.extract_model).launch(server_port=args.port)
 
 
 if __name__ == "__main__":

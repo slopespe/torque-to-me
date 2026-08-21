@@ -19,31 +19,8 @@ import sys
 from pathlib import Path
 
 import networkx as nx
-from pyvis.network import Network
 
-COLORS = {
-    "Procedure": "#e63946",
-    "TorqueSpec": "#457b9d",
-    "Part": "#2a9d8f",
-    "Symptom": "#e9c46a",
-}
-DEFAULT_COLOR = "#8d99ae"
-
-
-def node_type(data: dict) -> str:
-    for key in ("__label__", "label", "type", "node_type"):
-        v = data.get(key)
-        if isinstance(v, str) and v:
-            return v
-    return "Node"
-
-
-def node_caption(data: dict) -> str:
-    for key in ("title", "fastener", "name", "description", "chapter_title"):
-        v = data.get(key)
-        if isinstance(v, str) and v:
-            return v[:60]
-    return "?"
+from graph_viz import build_network, html_doc
 
 
 def main() -> None:
@@ -74,40 +51,10 @@ def main() -> None:
     with open(args.graph, "rb") as f:
         graph: nx.DiGraph = pickle.load(f)
 
-    net = Network(
-        height="900px",
-        width="100%",
-        directed=True,
-        bgcolor="#ffffff",
-        font_color="#1d3557",
-        cdn_resources="in_line",
-    )
-    net.barnes_hut(gravity=-3000, central_gravity=0.2, spring_length=140)
-
-    for node_id, data in graph.nodes(data=True):
-        ntype = node_type(data)
-        prov = data.get("__provenance__", "")
-        hover = "\n".join(
-            f"{k}: {v}" for k, v in data.items()
-            if not k.startswith("__") and v not in (None, [], "")
-        )
-        if prov:
-            hover += f"\n\nprovenance: {prov}"
-        net.add_node(
-            str(node_id),
-            label=node_caption(data),
-            title=hover or str(node_id),
-            color=COLORS.get(ntype, DEFAULT_COLOR),
-            shape="dot",
-            size=18 if ntype == "Procedure" else 12,
-        )
-
-    for u, v, edata in graph.edges(data=True):
-        label = edata.get("label", edata.get("type", ""))
-        net.add_edge(str(u), str(v), label=label, arrows="to", font={"size": 9})
+    net = build_network(graph)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    net.write_html(str(args.output))
+    args.output.write_text(html_doc(net))
     print(f"Wrote {args.output} ({graph.number_of_nodes()} nodes, {graph.number_of_edges()} edges)")
     print("Open it in a browser, let the layout settle, then screenshot.")
 

@@ -5,7 +5,7 @@ model, then persist the knowledge graph and an extraction report.
 
 Usage:
     python scripts/03_extract.py data/input/chapter_maintenance.pdf \
-        --model qwen2.5:14b
+        --model qwen3.5-32k
 
 Outputs:
     outputs/graph.pickle          NetworkX DiGraph (used by 04/05/06)
@@ -32,12 +32,19 @@ from templates.service_manual import ServiceManualChapter  # noqa: E402
 
 from docling_graph import PipelineContext, run_pipeline  # noqa: E402
 from graph_enrich import enrich  # noqa: E402
+import bike_meta  # noqa: E402
+import torque_config  # noqa: E402
+
+CFG = torque_config.load()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract knowledge graph from manual chapter")
     parser.add_argument("pdf", type=Path, help="Chapter PDF")
-    parser.add_argument("--model", default="qwen2.5:14b", help="Ollama model name")
+    parser.add_argument(
+        "--model", default=CFG.extract.model,
+        help="Ollama model name (default from config.toml [extract].model)",
+    )
     parser.add_argument(
         "--contract",
         default="dense",
@@ -49,6 +56,18 @@ def main() -> None:
         default=None,
         help="Name for this manual, e.g. 'honda-nx650'. Defaults to the PDF filename. "
         "Outputs go to outputs/<tag>/ so multiple bikes can coexist.",
+    )
+    parser.add_argument(
+        "--name",
+        default=None,
+        help="Bike display name shown in the app, e.g. 'Honda NX650 RD08'. "
+        "Defaults to the tag.",
+    )
+    parser.add_argument(
+        "--chapter",
+        default=None,
+        help="Manual chapter this PDF covers, e.g. 'Lubrication'. "
+        "Auto-detected from the extraction when omitted.",
     )
     parser.add_argument("--outdir", type=Path, default=Path("outputs"))
     args = parser.parse_args()
@@ -78,10 +97,10 @@ def main() -> None:
         # Ollama serves one request at a time, so parallel workers only queue
         # up and trip the timeout; a single worker with a generous timeout is
         # faster in practice for local thinking models.
-        "parallel_workers": 1,
+        "parallel_workers": CFG.extract.parallel_workers,
         "llm_overrides": {
-            "max_output_tokens": 16000,
-            "reliability": {"timeout_s": 900},
+            "max_output_tokens": CFG.extract.max_output_tokens,
+            "reliability": {"timeout_s": CFG.extract.timeout_s},
         },
     }
 
@@ -104,6 +123,12 @@ def main() -> None:
     graph_path = args.outdir / "graph.pickle"
     with open(graph_path, "wb") as f:
         pickle.dump(graph, f)
+
+    bike_meta.write(
+        args.outdir,
+        name=args.name or tag.replace("-", " "),
+        chapter=args.chapter or bike_meta.chapter_from_graph(graph),
+    )
 
     # 2. Dump raw extracted objects for manual spot-checking
     models_path = args.outdir / "models.json"

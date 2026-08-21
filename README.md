@@ -45,19 +45,28 @@ code for linking, human spot-checks as the final gate.
 
 ## Setup
 
-### 1. Install Ollama and pull a model
+### 1. Install Ollama and pull the models
+
+The pipeline uses two models: a strong (usually thinking) model to build
+the knowledge graph, and a fast model with thinking disabled to answer
+questions — answers come in seconds instead of the minutes a thinking
+model spends reasoning.
 
 ```bash
 # Linux
 curl -fsSL https://ollama.com/install.sh | sh
 # Windows/macOS: download from https://ollama.com/download
 
-# Pick ONE based on your hardware:
-ollama pull qwen2.5:14b     # best quality, needs ~10 GB VRAM
-ollama pull qwen2.5:7b      # good compromise, ~6 GB VRAM
-ollama pull granite3.1:8b   # IBM model, pairs well with docling
+# Answer model (fast; thinking turned off via config.toml):
+ollama pull gemma4:12b  # ~7.6 GB
+# ...or gemma3:12b (~8 GB), which has no thinking mode at all
 
-ollama run qwen2.5:14b "Say ok"   # verify
+# Extraction model — pick ONE based on your hardware:
+ollama pull qwen3:30b   # best quality on 24 GB+ unified memory (MoE, ~19 GB)
+ollama pull qwen3:14b   # strong middle ground, ~9 GB
+ollama pull qwen3:8b    # lighter machines, ~5 GB
+
+ollama run gemma4:12b "Say ok"   # verify
 ```
 
 Already have a model you like (including thinking models such as qwen3
@@ -77,7 +86,24 @@ pip install -r requirements.txt
 
 First run of docling downloads its layout/OCR models (~500 MB).
 
-### 3. Prepare your manual
+### 3. Configure (optional)
+
+All settings live in `config.toml` at the project root — which model
+answers questions, which one builds graphs, thinking mode, context
+window, timeouts. Every key is optional (defaults are in
+`scripts/torque_config.py`), CLI flags override the file, and
+`TORQUE_TO_ME_CONFIG=/path/to/file` points at an alternative config.
+
+```toml
+[answer]
+model = "gemma4:12b"
+think = false        # true = better but minutes-slow answers
+
+[extract]
+model = "qwen3.5-32k"
+```
+
+### 4. Prepare your manual
 
 Do NOT feed the whole manual on the first run. Cut out one chapter, ideally
 the maintenance chapter with the torque tables:
@@ -94,7 +120,7 @@ Find the page range in the manual's table of contents.
 ### Easy path: the app
 
 ```bash
-python scripts/05_app.py --model qwen2.5:14b
+python scripts/05_app.py    # models come from config.toml
 # open http://localhost:7860
 ```
 
@@ -124,7 +150,7 @@ Nothing downstream recovers from bad conversion.
 
 ```bash
 python scripts/03_extract.py data/input/chapter_maintenance.pdf \
-    --model qwen2.5:14b --tag honda-nx650
+    --model qwen3.5-32k --tag honda-nx650
 ```
 
 Saves under `outputs/honda-nx650/`: `graph.pickle` (the graph),

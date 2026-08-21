@@ -14,11 +14,13 @@ Pipeline per question:
 
 Usage:
     python scripts/04_query.py "torque for the rear axle nut"
-    python scripts/04_query.py "how do I adjust valve clearance" --model qwen2.5:14b
+    python scripts/04_query.py "how do I adjust valve clearance" --model gemma3:12b
+    # model, thinking mode, context size etc. come from config.toml
     python scripts/04_query.py "engine runs rich at idle" --show-facts
 """
 
 import argparse
+import json
 import pickle
 import re
 import sys
@@ -27,7 +29,9 @@ from pathlib import Path
 import networkx as nx
 import requests
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+import torque_config
+
+CFG = torque_config.load()
 
 STOPWORDS = {
     "the", "a", "an", "for", "of", "to", "on", "in", "is", "what", "how",
@@ -74,36 +78,96 @@ def collect_subgraph(graph: nx.DiGraph, seeds: list[str]) -> set[str]:
     return nodes
 
 
+def format_provenance(prov) -> str:
+    """Render a docling-graph provenance record as a short human cite."""
+    if not prov:
+        return ""
+    if isinstance(prov, dict):
+        parts = []
+        pages = prov.get("pages")
+        if pages:
+            word = "page" if len(pages) == 1 else "pages"
+            parts.append(f"{word} " + ", ".join(str(p) for p in pages))
+        if prov.get("manual_section"):
+            parts.append(prov["manual_section"])
+        if prov.get("match") == "curated":
+            parts.append("curated")
+        return f"  (source: {'; '.join(parts)})" if parts else ""
+    return f"  (source: {prov})"
+
+
+def format_value(value) -> str:
+    if isinstance(value, list):
+        return " | ".join(str(v) for v in value)
+    return str(value)
+
+
 def format_facts(graph: nx.DiGraph, nodes: set[str]) -> str:
     """Serialize nodes and their internal edges as numbered plain-text facts."""
     lines = []
-    idx = 1
-    for node_id in nodes:
+    index = {}
+    for i, node_id in enumerate(sorted(nodes), start=1):
+        index[node_id] = i
         data = graph.nodes[node_id]
+        kind = data.get("__class__") or data.get("label") or "Fact"
         attrs = {
             k: v for k, v in data.items()
-            if not k.startswith("__") and v not in (None, [], "")
+            if not k.startswith("__")
+            and k not in ("id", "type", "label")
+            and v not in (None, [], "")
         }
-        prov = data.get("__provenance__")
-        prov_s = f" [source: {prov}]" if prov else ""
-        body = "; ".join(f"{k}={v}" for k, v in attrs.items())
-        lines.append(f"[{idx}] {body}{prov_s}")
-        idx += 1
+        body = "; ".join(f"{k}={format_value(v)}" for k, v in attrs.items())
+        lines.append(f"[{i}] {kind}: {body}{format_provenance(data.get('__provenance__'))}")
     for u, v, edata in graph.edges(nodes, data=True):
         if u in nodes and v in nodes:
-            label = edata.get("label", edata.get("type", "RELATED_TO"))
-            lines.append(f"    edge: ({u}) -{label}-> ({v})")
+            label = edata.get("label", edata.get("type", "related to"))
+            lines.append(f"    [{index[u]}] --{label}--> [{index[v]}]")
     return "\n".join(lines)
 
 
-def ask_ollama(model: str, prompt: str) -> str:
+def stream_ollama(model: str, prompt: str, cfg: torque_config.AnswerConfig = None):
+    """Yield ("thinking" | "response", chunk) pairs as Ollama streams them.
+
+    Thinking models reason for minutes before the first response token;
+    streaming lets callers show progress instead of a dead UI.
+    """
+    cfg = cfg or CFG.answer
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": True,
+        "options": {"num_ctx": cfg.num_ctx},
+    }
+    if cfg.think is not None:
+        payload["think"] = cfg.think
+
     resp = requests.post(
-        OLLAMA_URL,
-        json={"model": model, "prompt": prompt, "stream": False},
-        timeout=900,  # thinking models can reason for minutes before answering
+        f"{CFG.ollama.url}/api/generate",
+        json=payload,
+        stream=True,
+        timeout=(10, cfg.timeout_s),
     )
-    resp.raise_for_status()
-    return resp.json()["response"]
+    if resp.status_code == 400 and "think" in payload and "think" in resp.text:
+        # Model doesn't support thinking modes (e.g. gemma3) — retry without.
+        del payload["think"]
+        resp = requests.post(
+            f"{CFG.ollama.url}/api/generate",
+            json=payload,
+            stream=True,
+            timeout=(10, cfg.timeout_s),
+        )
+    with resp:
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if not line:
+                continue
+            data = json.loads(line)
+            if data.get("thinking"):
+                yield "thinking", data["thinking"]
+            if data.get("response"):
+                yield "response", data["response"]
+            if data.get("done"):
+                return
 
 
 PROMPT_TEMPLATE = """You are a maintenance assistant for the motorcycle "{bike}".
@@ -111,7 +175,7 @@ Answer the question using ONLY the facts below, extracted from the service manua
 Rules:
 - If the facts do not contain the answer, say so plainly. Do not guess.
 - Quote exact values (torque, clearances, intervals) as they appear in the facts.
-- End with a "Source:" line listing the page/chunk references from the facts.
+- End with a "Source:" line listing the manual page numbers given in the facts you used (e.g. "Source: pages 1, 3").
 
 FACTS:
 {facts}
@@ -124,7 +188,10 @@ ANSWER:"""
 def main() -> None:
     parser = argparse.ArgumentParser(description="Query the maintenance knowledge graph")
     parser.add_argument("question", help="Maintenance question")
-    parser.add_argument("--model", default="qwen2.5:14b", help="Ollama model")
+    parser.add_argument(
+        "--model", default=CFG.answer.model,
+        help="Ollama model (default from config.toml [answer].model)",
+    )
     parser.add_argument(
         "--tag",
         default=None,
@@ -132,7 +199,9 @@ def main() -> None:
         "If omitted and exactly one graph exists, it is used.",
     )
     parser.add_argument("--graph", type=Path, default=None, help="Explicit graph path (overrides --tag)")
-    parser.add_argument("--top", type=int, default=4, help="Seed nodes to retrieve")
+    parser.add_argument(
+        "--top", type=int, default=CFG.answer.top_nodes, help="Seed nodes to retrieve"
+    )
     parser.add_argument("--show-facts", action="store_true", help="Print retrieved facts")
     args = parser.parse_args()
 
@@ -170,7 +239,15 @@ def main() -> None:
         print("-----------------------\n")
 
     prompt = PROMPT_TEMPLATE.format(facts=facts, question=args.question, bike=bike)
-    print(ask_ollama(args.model, prompt).strip())
+    thinking_noted = False
+    for kind, chunk in stream_ollama(args.model, prompt):
+        if kind == "thinking":
+            if not thinking_noted:
+                print("(model is thinking...)", file=sys.stderr)
+                thinking_noted = True
+            continue
+        print(chunk, end="", flush=True)
+    print()
 
 
 if __name__ == "__main__":

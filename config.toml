@@ -1,0 +1,33 @@
+# Torque to Me configuration.
+#
+# Every key is optional — missing keys use the built-in defaults in
+# scripts/torque_config.py. CLI flags (e.g. --model) override this file.
+# Point TORQUE_TO_ME_CONFIG at another file to use a different config.
+
+[ollama]
+url = "http://localhost:11434"
+
+[answer]
+# Fast model for answering questions in the app and 04_query.py.
+model = "gemma4:12b"
+# Thinking mode: false = answer in seconds, true = reason for minutes
+# (better on hard questions). Models that don't support thinking (e.g.
+# gemma3:12b) are retried without it automatically — you can also just
+# comment this line out for them.
+think = false
+# Context window per request. The facts prompt alone is ~4k tokens;
+# Ollama's default of 4096 would silently truncate it.
+num_ctx = 16384
+timeout_s = 900
+# Seed graph nodes retrieved per question (each pulls in its neighbors).
+top_nodes = 4
+
+[extract]
+# Strong model for building knowledge graphs from manuals. Needs a large
+# context baked into the model (see README: derived qwen3.5-32k) because
+# docling-graph doesn't pass per-request options.
+model = "qwen3.5-32k"
+max_output_tokens = 16000
+timeout_s = 900
+# Local Ollama serves one request at a time; keep this at 1.
+parallel_workers = 1
