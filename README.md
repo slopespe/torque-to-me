@@ -1,4 +1,10 @@
+<p align="center">
+  <img src="torque_to_me/assets/icon.png" width="160" alt="Torque to Me icon">
+</p>
+
 # Torque to Me
+
+[![CI](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml/badge.svg)](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml)
 
 A maintenance assistant for old motorcycles, built from their scanned
 service manuals with [docling-graph](https://github.com/docling-project/docling-graph).
@@ -11,22 +17,20 @@ tested on a 1990s Honda NX650 Dominator.
 
 ## How it works
 
-```
-scanned manual PDF
-      │  Docling (OCR, layout, tables)
-      ▼
-structured document
-      │  local LLM fills a Pydantic template (docling-graph)
-      ▼
-knowledge graph        Procedure ─REQUIRES→ Part
-(every node carries    Procedure ─SPECIFIES→ TorqueSpec
- its source page)      Symptom ─RESOLVED_BY→ Procedure
-      │  deterministic enrichment (scripts/graph_enrich.py):
-      │  recover cross-links the LLM left as prose, by string-matching
-      │  entity names against procedure text — no LLM call
-      ▼
-question → matching nodes → one-hop subgraph → local LLM answers,
-citing the manual pages it used
+```mermaid
+flowchart TD
+    PDF["scanned manual PDF"]
+    DOC["structured document"]
+    KG["knowledge graph<br/>(every node carries its source page)<br/><br/>Procedure ─REQUIRES→ Part<br/>Procedure ─SPECIFIES→ TorqueSpec<br/>Symptom ─RESOLVED_BY→ Procedure"]
+    RET["matching nodes → one-hop subgraph"]
+    ANS["answer, citing the manual pages it used"]
+
+    PDF -->|"Docling: OCR, layout, tables"| DOC
+    DOC -->|"local LLM fills a Pydantic template (docling-graph)"| KG
+    KG -->|"deterministic enrichment (graph_enrich.py): recover cross-links<br/>the LLM left as prose, by string-matching entity names<br/>against procedure text — no LLM call"| KG
+    Q["question"] --> RET
+    KG --> RET
+    RET -->|"local LLM, grounded in these facts only"| ANS
 ```
 
 The enrichment step exists because small local models extract entities and
@@ -81,17 +85,19 @@ unless you raise it.
 cd torque-to-me
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .                 # contributors: pip install -e ".[dev]"
 ```
 
-First run of docling downloads its layout/OCR models (~500 MB).
+This installs the `torque` command used everywhere below. First run of
+docling downloads its layout/OCR models (~500 MB).
 
 ### 3. Configure (optional)
 
-All settings live in `config.toml` at the project root — which model
-answers questions, which one builds graphs, thinking mode, context
-window, timeouts. Every key is optional (defaults are in
-`scripts/torque_config.py`), CLI flags override the file, and
+All settings live in `config.toml` — which model answers questions,
+which one builds graphs, thinking mode, context window, timeouts. The
+file is looked up in the directory you run `torque` from (the repo root,
+normally). Every key is optional (defaults are in
+`torque_to_me/config.py`), CLI flags override the file, and
 `TORQUE_TO_ME_CONFIG=/path/to/file` points at an alternative config.
 
 ```toml
@@ -109,7 +115,7 @@ Do NOT feed the whole manual on the first run. Cut out one chapter, ideally
 the maintenance chapter with the torque tables:
 
 ```bash
-python scripts/01_split_pdf.py data/input/manual.pdf --pages 20-45 \
+torque split data/input/manual.pdf --pages 20-45 \
     --output data/input/chapter_maintenance.pdf
 ```
 
@@ -120,7 +126,7 @@ Find the page range in the manual's table of contents.
 ### Easy path: the app
 
 ```bash
-python scripts/05_app.py    # models come from config.toml
+torque app    # models come from config.toml; or just ./demo.sh
 # open http://localhost:7860
 ```
 
@@ -131,14 +137,14 @@ python scripts/05_app.py    # models come from config.toml
 
 Multiple bikes coexist: each gets its own graph under `outputs/<bike-tag>/`.
 
-### Full-control path: the scripts
+### Full-control path: the CLI
 
 Run in order; each stage has a quality gate.
 
 **Stage 1 — Conversion check**
 
 ```bash
-python scripts/02_conversion_check.py data/input/chapter_maintenance.pdf
+torque check data/input/chapter_maintenance.pdf
 ```
 
 Writes `outputs/conversion_preview.md`. **Gate:** torque tables must
@@ -149,7 +155,7 @@ Nothing downstream recovers from bad conversion.
 **Stage 2 — Extraction**
 
 ```bash
-python scripts/03_extract.py data/input/chapter_maintenance.pdf \
+torque extract data/input/chapter_maintenance.pdf \
     --model qwen3.5-32k --tag honda-nx650
 ```
 
@@ -157,23 +163,23 @@ Saves under `outputs/honda-nx650/`: `graph.pickle` (the graph),
 `models.json` (raw extracted objects), `extraction_report.txt` (counts
 and sample provenance). **Gate:** pick 10 facts from `models.json` and
 check them against the paper manual. Target 9/10. If quality is poor,
-improve the `description=` strings in `templates/service_manual.py`
-(they are the extraction instructions the LLM sees), try a larger model,
-or narrow the page range.
+improve the `description=` strings in
+`torque_to_me/templates/service_manual.py` (they are the extraction
+instructions the LLM sees), try a larger model, or narrow the page range.
 
 Alternative: induce a template from your own manual instead of using
 the shipped one:
 
 ```bash
 docling-graph template from-docs data/input/chapter_maintenance.pdf \
-    --output templates/my_bike.py --name ServiceManualChapter --trial-run
+    --output my_bike_template.py --name ServiceManualChapter --trial-run
 ```
 
 **Stage 3 — Query from the terminal**
 
 ```bash
-python scripts/04_query.py "torque for the rear axle nut" --tag honda-nx650
-python scripts/04_query.py "engine runs rich at idle" --show-facts
+torque query "torque for the rear axle nut" --tag honda-nx650
+torque query "engine runs rich at idle" --show-facts
 ```
 
 (`--tag` optional when only one graph exists.)
@@ -181,7 +187,7 @@ python scripts/04_query.py "engine runs rich at idle" --show-facts
 **Stage 4 — Visualize the graph**
 
 ```bash
-python scripts/06_visualize.py --tag honda-nx650
+torque viz --tag honda-nx650
 # open outputs/honda-nx650/graph.html
 ```
 
@@ -190,13 +196,15 @@ attributes and source page.
 
 **Optional Stage 5 — Curate**
 
-The demo graph in this repo went through one more pass:
-`scripts/curate_demo.py` encodes what a careful human reading of the
-converted manual recovers that the LLM missed (whole procedures, the
-recommended oil spec, symptom→fix links). It is specific to the NX650
-lubrication chapter, but it shows the pattern: curated nodes carry
-`match='curated'` provenance so they stay distinguishable, and the script
-is idempotent so it can re-run after every extraction.
+The demo graph in this repo went through one more pass: `torque
+curate-demo` encodes what a careful human reading of the converted
+manual recovers that the LLM missed (whole procedures, the recommended
+oil spec, symptom→fix links). It is specific to the NX650 lubrication
+chapter, but it shows the pattern: curated nodes carry `match='curated'`
+provenance so they stay distinguishable, and the command is idempotent
+so it can re-run after every extraction. (`torque enrich` re-runs just
+the deterministic cross-link recovery, which `torque extract` already
+does automatically.)
 
 ## Running on local thinking models: lessons learned
 
@@ -260,18 +268,25 @@ on every answer exists precisely so you can verify in seconds.
 ```
 torque-to-me/
 ├── README.md
-├── requirements.txt
-├── templates/
-│   └── service_manual.py     # extraction schema (bike-agnostic)
-├── scripts/
-│   ├── 01_split_pdf.py       # cut a chapter out of the manual
-│   ├── 02_conversion_check.py# Docling conversion preview (quality gate 1)
-│   ├── 03_extract.py         # build the graph for one manual (--tag)
-│   ├── graph_enrich.py       # deterministic cross-link recovery (auto-run)
-│   ├── curate_demo.py        # hand-curated additions for the demo graph
-│   ├── 04_query.py           # CLI question answering
-│   ├── 05_app.py             # Torque to Me app: upload, build, ask
-│   └── 06_visualize.py       # interactive HTML graph view
+├── pyproject.toml            # packaging, deps, ruff + pytest config
+├── config.toml               # model/timeout settings (all optional)
+├── demo.sh                   # one-command app launcher
+├── torque_to_me/             # the package behind the `torque` CLI
+│   ├── cli.py                # argument parsing + subcommand dispatch
+│   ├── config.py             # config.toml loading and defaults
+│   ├── split_pdf.py          # torque split — cut a chapter out
+│   ├── conversion_check.py   # torque check — quality gate 1
+│   ├── extract.py            # torque extract — build the graph (--tag)
+│   ├── graph_enrich.py       # torque enrich — cross-link recovery (auto-run)
+│   ├── curate_demo.py        # torque curate-demo — the human-in-the-loop pass
+│   ├── query.py              # torque query — CLI question answering
+│   ├── app.py                # torque app — upload, build, ask
+│   ├── visualize.py          # torque viz — interactive HTML graph view
+│   ├── graph_viz.py          # shared pyvis rendering
+│   ├── bike_meta.py          # per-bike metadata + graph path resolution
+│   └── templates/
+│       └── service_manual.py # extraction schema (bike-agnostic)
+├── tests/                    # pure-logic unit tests (no LLM needed)
 ├── data/input/               # your manual PDFs (gitignored)
 └── outputs/<bike-tag>/       # one graph per bike (gitignored)
 ```
@@ -283,8 +298,9 @@ surprisingly well.
 ## Version note
 
 Written against docling-graph 1.9.x (August 2026), pinned `>=1.9,<2` in
-requirements.txt. Two API notes for future upgrades: `run_pipeline`
+pyproject.toml. Two API notes for future upgrades: `run_pipeline`
 returns a `PipelineContext` (1.x behaviour), and the `edge()` field helper
 is intentionally *not* importable from the library — docling-graph ships
 it as a documented snippet that template authors copy into their template,
-which is why it is defined locally in `templates/service_manual.py`.
+which is why it is defined locally in
+`torque_to_me/templates/service_manual.py`.
