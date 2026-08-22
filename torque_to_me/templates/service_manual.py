@@ -10,7 +10,7 @@ Design notes:
   Be literal and concrete. Improving these is the main quality lever.
 - `graph_id_fields` make node IDs stable across chunks, so the same part
   or procedure mentioned twice merges into one node.
-- Keep the schema small. Four entities is enough for the demo; more
+- Keep the schema small. Five entities is enough for the demo; more
   entity types dilute extraction quality.
 """
 
@@ -108,6 +108,54 @@ class Symptom(BaseModel):
     )
 
 
+class MaintenanceItem(BaseModel):
+    """One row of a maintenance schedule table: an item and when to service it."""
+
+    model_config = {
+        "is_entity": True,
+        "graph_id_fields": ["item"],
+    }
+
+    item: str = Field(
+        description=(
+            "The inspected/serviced item exactly as written in the schedule "
+            "table row, e.g. 'ENGINE OIL FILTER', 'DRIVE CHAIN', 'BRAKE FLUID'."
+        )
+    )
+    action: str = Field(
+        description=(
+            "What the schedule says to do, spelling out the code letters "
+            "from the table legend (I=inspect, C=clean, R=replace, "
+            "A=adjust, L=lubricate), e.g. 'clean; replace at some "
+            "intervals' becomes 'clean every 4,000 mi, replace every "
+            "12,000 mi'."
+        )
+    )
+    interval: str | None = Field(
+        default=None,
+        description=(
+            "The service interval(s) for this row as written, e.g. "
+            "'every 8,000 mi (12.8k km)', 'every 2,000 mi (3,200 km)', "
+            "'every two years'. Leave empty if the row gives no interval."
+        ),
+    )
+    note: str | None = Field(
+        default=None,
+        description=(
+            "The text of any footnote the row references (e.g. '(NOTE 5)' "
+            "-> 'Service more frequently when riding OFF-ROAD'). Leave "
+            "empty if the row has no note."
+        ),
+    )
+    page_ref: str | None = Field(
+        default=None,
+        description=(
+            "The manual page the row points to in a 'refer to page' "
+            "column, exactly as printed, e.g. '3-4'. Leave empty if absent."
+        ),
+    )
+
+
 class Procedure(BaseModel):
     """A maintenance or repair procedure with ordered steps."""
 
@@ -173,6 +221,16 @@ class ServiceManualChapter(BaseModel):
         description=(
             "Troubleshooting symptoms in this chapter. Empty list if the "
             "chapter has no troubleshooting content."
+        ),
+    )
+    maintenance_items: list[MaintenanceItem] = edge(
+        "SCHEDULES",
+        description=(
+            "One entry PER ROW of any maintenance schedule table in this "
+            "chapter (the table listing items against odometer intervals "
+            "with I/C/R/A/L codes). Enumerate every row — do not summarize "
+            "the table into one entry. Empty list if the chapter has no "
+            "schedule table."
         ),
     )
     symptom_resolutions: list[Procedure] = edge(
