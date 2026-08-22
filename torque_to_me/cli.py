@@ -9,7 +9,7 @@ One `torque` command with a subcommand per pipeline stage:
     torque curate-demo  apply the hand-curated demo additions (NX650 example)
     torque query        answer a maintenance question from the graph
     torque viz          render the graph to interactive HTML
-    torque app          launch the Gradio demo UI
+    torque app          launch the Gradio demo UI (query only, no extraction)
 
 All argument definitions live here; the implementation modules are
 imported only on dispatch so that `torque split --help` never pays the
@@ -129,17 +129,14 @@ def build_parser(cfg: config.Config) -> argparse.ArgumentParser:
     p.add_argument("--output", type=Path, default=None)
     p.set_defaults(runner="torque_to_me.visualize")
 
-    p = sub.add_parser("app", help="Launch the Torque to Me demo UI")
+    p = sub.add_parser(
+        "app",
+        help="Launch the Torque to Me demo UI (query and visualize existing graphs)",
+    )
     p.add_argument(
         "--answer-model",
         default=cfg.answer.model,
         help="Fast Ollama model for answering questions (default from config.toml [answer].model)",
-    )
-    p.add_argument(
-        "--extract-model",
-        default=cfg.extract.model,
-        help="Ollama model for building knowledge graphs; needs a 32k context "
-        "(default from config.toml [extract].model)",
     )
     p.add_argument("--port", type=int, default=7860)
     p.set_defaults(runner="torque_to_me.app")

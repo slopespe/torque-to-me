@@ -5,14 +5,14 @@
 # Torque to Me
 
 [![CI](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml/badge.svg)](https://github.com/slopespe/torque-to-me/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Local only](https://img.shields.io/badge/inference-100%25%20local%20(Ollama)-orange)](https://ollama.com)
 
 A maintenance assistant for old motorcycles, built from their scanned
 service manuals with [docling-graph](https://github.com/docling-project/docling-graph).
-Upload your own manual, get a knowledge graph, ask questions. Every answer
+Point it at your own manual, get a knowledge graph, ask questions. Every answer
 is grounded with page-level provenance back to the manual. Runs fully
 local with Ollama: your manual never leaves your machine.
 
@@ -130,25 +130,31 @@ torque split data/input/manual.pdf --pages 20-45 \
 
 Find the page range in the manual's table of contents.
 
-## Two ways to use it
+## Using it
 
-### Easy path: the app
+### Ask and visualize: the app
 
 ```bash
 torque app    # models come from config.toml; or just ./demo.sh
 # open http://localhost:7860
 ```
 
-- **"Your manual" tab**: upload the chapter PDF, name the bike, click
-  "Build knowledge graph". Extraction takes minutes to tens of minutes.
-- **"Torque to me" tab**: pick the bike, ask away. The right panel shows
-  the graph facts and manual pages behind each answer.
+Pick a bike, ask away. The right panel shows the graph facts and manual
+pages behind each answer.
 
-Multiple bikes coexist: each gets its own graph under `outputs/<bike-tag>/`.
+The app is read-only: it queries and visualizes graphs that already
+exist, it does not build them. `./demo.sh` seeds the bundled Honda NX650
+example on its first run, so there is something to ask about before you
+extract anything yourself.
 
-### Full-control path: the CLI
+Multiple bikes coexist: each gets its own graph under
+`outputs/<bike-tag>/`. Click "Refresh list" after an extraction finishes
+to pick up a new one.
 
-Run in order; each stage has a quality gate.
+### Build a graph: the CLI
+
+Extraction takes minutes to tens of minutes and each stage has a quality
+gate worth reading, so it belongs in a terminal. Run in order.
 
 **Stage 1 — Conversion check**
 
@@ -289,7 +295,7 @@ torque-to-me/
 │   ├── graph_enrich.py       # torque enrich — cross-link recovery (auto-run)
 │   ├── curate_demo.py        # torque curate-demo — the human-in-the-loop pass
 │   ├── query.py              # torque query — CLI question answering
-│   ├── app.py                # torque app — upload, build, ask
+│   ├── app.py                # torque app — ask + provenance UI (read-only)
 │   ├── visualize.py          # torque viz — interactive HTML graph view
 │   ├── graph_viz.py          # shared pyvis rendering
 │   ├── bike_meta.py          # per-bike metadata + graph path resolution

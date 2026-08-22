@@ -5,4 +5,4 @@ dispatching, and subcommands like `torque split --help` must not pay the
 multi-second import cost of gradio or docling.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

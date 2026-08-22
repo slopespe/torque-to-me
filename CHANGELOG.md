@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-08-22
+
+### Added
+
+- `MaintenanceItem` entity in the extraction template: one node per row
+  of a maintenance schedule table (item, action with the I/C/R/A/L codes
+  spelled out, interval, footnote, page reference), linked from the
+  chapter with a `SCHEDULES` edge.
+
+### Removed
+
+- The app's "Your manual" tab: uploading a PDF and building a knowledge
+  graph from the browser, along with its live extraction status view and
+  Stop button, and the now-unused `torque app --extract-model` flag.
+  Graph building is a CLI job (`torque split` / `check` / `extract`) —
+  it is long-running and each stage has a quality gate that wants a
+  terminal. The app is read-only: it queries and visualizes existing
+  graphs.
+
 ## [0.1.0] — 2026-08-21
 
 First tagged release.
