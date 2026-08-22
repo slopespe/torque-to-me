@@ -11,7 +11,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - `MaintenanceItem` entity in the extraction template: one node per row
   of a maintenance schedule table (item, action with the I/C/R/A/L codes
   spelled out, interval, footnote, page reference), linked from the
-  chapter with a `SCHEDULES` edge.
+  chapter with a `SCHEDULES` edge, with its own color in the graph
+  visualizations and legend.
 
 ### Removed
 

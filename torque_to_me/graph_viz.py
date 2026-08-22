@@ -1,7 +1,7 @@
 """Shared pyvis rendering for knowledge (sub)graphs.
 
-Used by 05_app.py (per-question retrieved-subgraph panel) and
-06_visualize.py (whole-graph HTML export).
+Used by app.py (per-question retrieved-subgraph panel) and
+visualize.py (whole-graph HTML export).
 """
 
 import html
@@ -14,6 +14,7 @@ COLORS = {
     "TorqueSpec": "#457b9d",
     "Part": "#2a9d8f",
     "Symptom": "#e9c46a",
+    "MaintenanceItem": "#8367c7",
 }
 DEFAULT_COLOR = "#8d99ae"
 
@@ -27,7 +28,7 @@ def node_type(data: dict) -> str:
 
 
 def node_caption(data: dict) -> str:
-    for key in ("title", "fastener", "name", "description", "chapter_title"):
+    for key in ("title", "fastener", "name", "item", "description", "chapter_title"):
         v = data.get(key)
         if isinstance(v, str) and v:
             return v[:60]
