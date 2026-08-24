@@ -4,3 +4,10 @@ data/input/*.pdf
 outputs/
 .env
 .DS_Store
+
+# build artifacts
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
