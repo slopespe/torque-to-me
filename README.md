@@ -22,6 +22,8 @@ tested on a 1990s Honda NX650 Dominator — the graph it produced ships in
 query layer and the app before extracting anything yourself.
 
 Design rationale lives in [`docs/architecture.md`](docs/architecture.md);
+what running this on real hardware actually taught us, with measured
+numbers, in [`docs/lessons-learned.md`](docs/lessons-learned.md);
 release history in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it works
@@ -302,7 +304,7 @@ torque-to-me/
 │   └── templates/
 │       └── service_manual.py # extraction schema (bike-agnostic)
 ├── tests/                    # pure-logic unit tests (no LLM needed)
-├── docs/architecture.md      # design rationale
+├── docs/                     # architecture rationale + lessons learned
 ├── examples/honda-nx650/     # a real extracted graph, ready to query
 ├── data/input/               # your manual PDFs (gitignored)
 └── outputs/<bike-tag>/       # one graph per bike (gitignored)
